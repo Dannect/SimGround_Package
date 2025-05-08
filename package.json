@@ -12,14 +12,15 @@
     "content",
     "quiz"
   ],
-
+  "unity": "2019.4",
+  "unityRelease": "25f1",
   "dependencies": {},
   "repository": {
     "type": "git",
     "url": "https://github.com/Dannect/SimGround_Package.git",
     "revision": "main",
     "_upm": {
-      "changelog": "Fixed issue where total size of all bundles changes when updating the same Addressable Groups build."
+      "changelog": "Fixed issue."
     },
     "upmCi": {
       "footprint": "e66c22623e26c3c815a3939eed5ccccd523380d3"
