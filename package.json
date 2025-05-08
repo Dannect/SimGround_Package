@@ -2,7 +2,6 @@
   "name": "com.unity.quizmodulepackage",
   "displayName": "QuizModule Package",
   "version": "1.0.0",
-  "unity": "6000.0.30f1",
   "description": "QuizModule Package with Addressable",
   "keywords": [
     "addressable",
