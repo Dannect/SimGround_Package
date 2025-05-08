@@ -1,0 +1,29 @@
+{
+  "name": "com.unity.quizmodulepackage",
+  "displayName": "QuizModule Package",
+  "version": "1.0.0",
+  "unity": "6000.0.30f1",
+  "description": "QuizModule Package with Addressable",
+  "keywords": [
+    "addressable",
+    "asset",
+    "loading",
+    "bundle",
+    "assetbundle",
+    "content",
+    "quiz"
+  ],
+  "dependencies": {},
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Dannect/SimGround_Package.git",
+    "revision": "main",
+    "_upm": {
+      "changelog": "Fixed issue where total size of all bundles changes when updating the same Addressable Groups build."
+    },
+    "upmCi": {
+      "footprint": "e66c22623e26c3c815a3939eed5ccccd523380d3"
+    },
+    "_fingerprint": "101dcb4353ce8bea5b4404d0ca31ce5a00ca751c"
+  }
+}
