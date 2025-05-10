@@ -10,7 +10,7 @@ project_dirs = [
 
 # 추가할 패키지 정보
 package_name = "com.dannect.toolkit"
-package_url = "https://github.com/Dannect/SimGround_Package.git#main"
+package_url = "https://github.com/Dannect/SimGround_Package.git"
 
 for project_dir in project_dirs:
     manifest_path = os.path.join(project_dir, "Packages", "manifest.json")

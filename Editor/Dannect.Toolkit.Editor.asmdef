@@ -1,3 +1,16 @@
 {
-	"name": "Dannect.Toolkit.Editor"
+	"name": "Dannect.Toolkit.Editor",
+	"optionalUnityReferences": [],
+	"includePlatforms": [],
+	"excludePlatforms": [],
+	"allowUnsafeCode": false,
+	"overrideReferences": false,
+	"precompiledReferences": [],
+	"autoReferenced": true,
+	"defineConstraints": [],
+	"versionDefines": [],
+	"noEngineReferences": false,
+	"assemblyReferences": [],
+	"rootNamespace": "",
+	"platformAsmdefDefines": []
 }
