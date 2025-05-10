@@ -9,7 +9,7 @@ manifest_path = os.path.join(project_dir, "Packages", "manifest.json")
 
 # 추가/수정할 패키지 정보
 git_packages = {
-    "com.cursorcompany.cursor": "https://github.com/boxqkrtm/com.unity.ide.cursor.git",
+    "com.boxqkrtm.ide.cursor": "https://github.com/boxqkrtm/com.unity.ide.cursor.git",
     "com.gamelovers.mcp-unity": "https://github.com/CoderGamester/mcp-unity.git"
 }
 

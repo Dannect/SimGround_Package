@@ -8,9 +8,5 @@
     "name": "Lim-jooyoung",
     "email": "ljy1209@dannect.com"
   },
-  "dependencies": {
-    "com.gamelovers.mcp-unity": "https://github.com/CoderGamester/mcp-unity.git",
-    "com.cursorcompany.cursor": "https://github.com/boxqkrtm/com.unity.ide.cursor.git"
-  },
   "url": "https://github.com/Dannect/SimGround_Package"
 }
