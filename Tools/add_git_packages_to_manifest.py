@@ -1,28 +1,37 @@
 import os
 import json
 
-# 수정할 유니티 프로젝트 경로
-project_dir = r"E:\4.1.2.8_GetWater"  # ← 실제 프로젝트 경로로 수정
+# 모든 프로젝트 폴더 리스트
+project_dirs = [
+    r"E:\4.1.2.8_GetWater",
+    
+    # ... 추가
+]
 
-# manifest.json 경로
-manifest_path = os.path.join(project_dir, "Packages", "manifest.json")
-
-# 추가/수정할 패키지 정보
+# 여러 Git 패키지 정보 (패키지명: Git 주소)
 git_packages = {
     "com.boxqkrtm.ide.cursor": "https://github.com/boxqkrtm/com.unity.ide.cursor.git",
-    "com.gamelovers.mcp-unity": "https://github.com/CoderGamester/mcp-unity.git"
+    "com.gamelovers.mcp-unity": "https://github.com/CoderGamester/mcp-unity.git",
+    "com.dannect.toolkit": "https://github.com/Dannect/SimGround_Package.git"
+    # ... 추가
 }
 
-# manifest.json 읽기
-with open(manifest_path, "r", encoding="utf-8") as f:
-    manifest = json.load(f)
+# 각 프로젝트에 대해 반복
+for project_dir in project_dirs:
+    manifest_path = os.path.join(project_dir, "Packages", "manifest.json")
+    if not os.path.exists(manifest_path):
+        print(f"{manifest_path} 없음")
+        continue
 
-# dependencies에 패키지 추가/수정
-for name, url in git_packages.items():
-    manifest["dependencies"][name] = url
+    # manifest.json 파일 열기
+    with open(manifest_path, "r", encoding="utf-8") as f:
+        manifest = json.load(f)
 
-# manifest.json 저장
-with open(manifest_path, "w", encoding="utf-8") as f:
-    json.dump(manifest, f, indent=4, ensure_ascii=False)
+    # 모든 Git 패키지 추가/수정
+    for name, url in git_packages.items():
+        manifest["dependencies"][name] = url
 
-print("필수 Git 패키지 2종이 manifest.json에 추가/수정되었습니다!")
+    # manifest.json 파일 저장
+    with open(manifest_path, "w", encoding="utf-8") as f:
+        json.dump(manifest, f, indent=4, ensure_ascii=False)
+    print(f"{manifest_path}에 패키지들 추가 완료!")
