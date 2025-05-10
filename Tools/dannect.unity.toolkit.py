@@ -7,6 +7,7 @@ import chardet
 # =========================
 project_dirs = [
     r"E:\4.1.2.8_GetWater",
+    r"E:\3.1.2.3_AroundAnimals",
     # ... 필요시 추가
 ]
 
