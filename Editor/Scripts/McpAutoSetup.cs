@@ -2,6 +2,8 @@
 // 최초 1회만 실행됨
 
 using UnityEditor;
+using McpUnity.Unity;
+using McpUnity.Utils;
 
 [InitializeOnLoad]
 public static class McpAutoSetup
