@@ -12,7 +12,8 @@ public class PrefabAutoCopierOnLoad
 
     public static void CopyPrefabFromPackage()
     {
-        string packagePrefabPath = "Packages/com.dannect.toolkit/Runtime/Warning_Pop.prefab";
+        string packagePrefabPath = "Packages/com.dannect.toolkit/Runtime/Prefabs/Warning_Pop.prefab";
+        
         string projectPrefabPath = "Assets/04.Prefabs/Warning/Prefabs/Warning_Pop.prefab";
 
         string absPackagePath = Path.GetFullPath(packagePrefabPath);

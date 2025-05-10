@@ -2,8 +2,6 @@
 // 최초 1회만 실행됨
 
 using UnityEditor;
-using McpUnity.Unity;      // MCP Unity 패키지 네임스페이스
-using McpUnity.Utils;     // MCP Config 유틸리티
 
 [InitializeOnLoad]
 public static class McpAutoSetup
