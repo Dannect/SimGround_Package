@@ -3,8 +3,8 @@ import json
 
 # 모든 프로젝트 폴더 리스트
 project_dirs = [
-    r"E:\Project1",
-    r"E:\Project2",
+    r"E:\4.1.2.8_GetWater",
+    
     # ... 추가
 ]
 
