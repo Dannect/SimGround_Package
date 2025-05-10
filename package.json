@@ -1,0 +1,16 @@
+{
+  "name": "com.dannect.toolkit",
+  "version": "1.0.0",
+  "displayName": "Dannect Toolkit",
+  "description": "유니티 프로젝트에서 공용으로 사용하는 프리팹, 에디터 스크립트 패키지",
+  "unity": "2021.3",
+  "author": {
+    "name": "Lim-jooyoung",
+    "email": "ljy1209@dannect.com"
+  },
+  "dependencies": {
+    "com.gamelovers.mcp-unity": "https://github.com/CoderGamester/mcp-unity.git",
+    "com.cursorcompany.cursor": "https://github.com/boxqkrtm/com.unity.ide.cursor.git"
+  },
+  "url": "https://github.com/Dannect/SimGround_Package"
+}
