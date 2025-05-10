@@ -11,8 +11,8 @@ project_dirs = [
 # 여러 Git 패키지 정보 (패키지명: Git 주소)
 git_packages = {
     "com.boxqkrtm.ide.cursor": "https://github.com/boxqkrtm/com.unity.ide.cursor.git",
-    "com.gamelovers.mcp-unity": "https://github.com/CoderGamester/mcp-unity.git",
     "com.dannect.toolkit": "https://github.com/Dannect/SimGround_Package.git"
+    #"com.gamelovers.mcp-unity": "https://github.com/CoderGamester/mcp-unity.git",
     # ... 추가
 }
 
