@@ -24,18 +24,9 @@ public class PackageAssetCopier
         string packagePrefabPath = "Packages/com.dannect.toolkit/Runtime/Prefabs/Warning_Pop.prefab";
         string projectPrefabPath = "Assets/04.Prefabs/Warning/Prefabs/Warning_Pop.prefab";
 
-        // 1. 프리팹 로드
-        GameObject oldPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(projectPrefabPath);
-        GameObject newPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(packagePrefabPath);
-
-        if (newPrefab == null)
-        {
-            Debug.LogWarning("패키지 프리팹을 찾을 수 없습니다: " + packagePrefabPath);
-            return;
-        }
-
-        // 2. 기존 프리팹의 Button OnClick 정보 저장
+        // 1. 기존 프리팹의 Button OnClick 정보 저장
         Dictionary<string, List<(Object, string)>> buttonEventDict = new Dictionary<string, List<(Object, string)>>();
+        GameObject oldPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(projectPrefabPath);
         if (oldPrefab != null)
         {
             var oldButtons = oldPrefab.GetComponentsInChildren<Button>(true);
@@ -50,7 +41,6 @@ public class PackageAssetCopier
                     var methodName = onClick.GetPersistentMethodName(i);
                     if (target != null && !string.IsNullOrEmpty(methodName))
                     {
-                        Debug.Log($"[Button OnClick] 버튼: {btn.name}, 타겟 오브젝트: {target.name}, 메소드: {methodName}", btn.gameObject);
                         eventList.Add((target, methodName));
                     }
                 }
@@ -58,12 +48,23 @@ public class PackageAssetCopier
             }
         }
 
-        // 3. 새 프리팹 인스턴스를 임시 씬에 생성
+        // 2. 패키지 프리팹을 임시 씬에 인스턴스화
         var tempScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Additive);
-        GameObject newInstance = (GameObject)PrefabUtility.InstantiatePrefab(newPrefab, tempScene);
+        GameObject tempInstance = (GameObject)PrefabUtility.InstantiatePrefab(
+            AssetDatabase.LoadAssetAtPath<GameObject>(packagePrefabPath), tempScene);
 
-        // 4. Button에 기존 OnClick 이벤트 복사 (UnityEventTools 사용)
-        var newButtons = newInstance.GetComponentsInChildren<Button>(true);
+        // 3. 임시 인스턴스를 프로젝트(Assets/)에 저장
+        Directory.CreateDirectory(Path.GetDirectoryName(projectPrefabPath));
+        PrefabUtility.SaveAsPrefabAsset(tempInstance, projectPrefabPath);
+        GameObject.DestroyImmediate(tempInstance);
+        EditorSceneManager.CloseScene(tempScene, true);
+
+        // 4. 프로젝트 프리팹을 다시 로드 (이제 읽기/쓰기 가능)
+        GameObject projectPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(projectPrefabPath);
+        var prefabInstance = PrefabUtility.InstantiatePrefab(projectPrefab) as GameObject;
+
+        // 5. Button의 OnClick을 복원
+        var newButtons = prefabInstance.GetComponentsInChildren<Button>(true);
         foreach (var btn in newButtons)
         {
             if (buttonEventDict.TryGetValue(btn.name, out var eventList))
@@ -91,13 +92,9 @@ public class PackageAssetCopier
             }
         }
 
-        // 5. 기존 프리팹을 새 인스턴스로 교체
-        Directory.CreateDirectory(Path.GetDirectoryName(projectPrefabPath));
-        PrefabUtility.SaveAsPrefabAsset(newInstance, projectPrefabPath);
-        GameObject.DestroyImmediate(newInstance);
-
-        // 6. 임시 씬 정리
-        EditorSceneManager.CloseScene(tempScene, true);
+        // 6. 다시 Prefab으로 저장
+        PrefabUtility.SaveAsPrefabAsset(prefabInstance, projectPrefabPath);
+        GameObject.DestroyImmediate(prefabInstance);
 
         AssetDatabase.Refresh();
         Debug.Log("패키지 프리팹을 병합하여 프로젝트로 복사 완료! (Button OnClick 이벤트 Inspector에 100% 유지)");
