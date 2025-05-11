@@ -4,6 +4,7 @@ using UnityEngine.UI;
 using UnityEngine.Events;
 using System.IO;
 using System.Collections.Generic;
+using UnityEditor.Events;
 
 [InitializeOnLoad]
 public class PackageAssetCopier
@@ -64,7 +65,24 @@ public class PackageAssetCopier
         {
             if (buttonEventDict.TryGetValue(btn.name, out var oldEvent))
             {
-                btn.onClick = oldEvent;
+                // 기존 이벤트를 모두 제거
+                UnityEventTools.RemovePersistentListeners(btn.onClick);
+
+                int count = oldEvent.GetPersistentEventCount();
+                for (int i = 0; i < count; i++)
+                {
+                    var target = oldEvent.GetPersistentTarget(i);
+                    var methodName = oldEvent.GetPersistentMethodName(i);
+                    if (target != null && !string.IsNullOrEmpty(methodName))
+                    {
+                        var method = target.GetType().GetMethod(methodName, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
+                        if (method != null)
+                        {
+                            UnityAction action = (UnityAction)System.Delegate.CreateDelegate(typeof(UnityAction), target, method);
+                            UnityEventTools.AddPersistentListener(btn.onClick, action);
+                        }
+                    }
+                }
             }
         }
 
