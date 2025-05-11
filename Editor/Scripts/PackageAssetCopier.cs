@@ -19,7 +19,14 @@ public class PackageAssetCopier
             "프리팹",
             true
         );
-
+        
+        // 빌드 스크립트 복사
+        CopyAssetFromPackage(
+            "Packages/com.dannect.toolkit/Editor/Scripts/AutoWebGLBuild.cs",
+            "Assets/Editor/Scripts/AutoWebGLBuild.cs",
+            "빌드 스크립트",
+            true
+        );
     }
 
     private static void CopyAssetFromPackage(string packagePath, string projectPath, string assetType, bool overwrite = true)
