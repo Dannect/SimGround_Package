@@ -15,7 +15,7 @@ public class PackageAssetCopier
         // 프리팹 복사
         CopyPrefabFromPackage();
         // 빌드 스크립트 복사
-        CopyBuildScriptFromPackage();
+        // CopyBuildScriptFromPackage();
     }
 
     public static void CopyPrefabFromPackage()
