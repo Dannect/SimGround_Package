@@ -9,7 +9,7 @@
 
 ## 설치 방법
 
-1. Tools-dannect.unity.toolkit.py를 실행하여, project_dirs에 적용할 프로젝트의 설치 위치 입력합니다.
+1. Tools-dannect.unity.toolkit.py를 실행하여, project_dirs에 적용할 프로젝트의 설치 위치를 입력합니다.
 2. 명령 프롬프트(cmd)를 열고, `dannect.unity.toolkit.py` 파일이 있는 폴더로 이동합니다.  
    - 이동 방법:  
      ```
