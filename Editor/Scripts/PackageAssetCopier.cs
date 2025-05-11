@@ -35,7 +35,7 @@ public class PackageAssetCopier
         }
 
         // 2. 기존 프리팹의 Button OnClick 정보 저장 및 로그 출력
-        Dictionary<string, Button.ButtonClickedEvent> buttonEventDict = new Dictionary<string, Button.ButtonClickedEvent>();
+        Dictionary<string, List<(Object target, string methodName)>> buttonEventDict = new Dictionary<string, List<(Object, string)>>();
         if (oldPrefab != null)
         {
             var oldButtons = oldPrefab.GetComponentsInChildren<Button>(true);
@@ -43,6 +43,7 @@ public class PackageAssetCopier
             {
                 var onClick = btn.onClick;
                 int eventCount = onClick.GetPersistentEventCount();
+                var eventList = new List<(Object, string)>();
                 for (int i = 0; i < eventCount; i++)
                 {
                     var target = onClick.GetPersistentTarget(i);
@@ -50,9 +51,10 @@ public class PackageAssetCopier
                     if (target != null && !string.IsNullOrEmpty(methodName))
                     {
                         Debug.Log($"[Button OnClick] 버튼: {btn.name}, 타겟 오브젝트: {target.name}, 메소드: {methodName}", btn.gameObject);
+                        eventList.Add((target as Object, methodName));
                     }
                 }
-                buttonEventDict[btn.name] = CloneButtonClickedEvent(btn.onClick);
+                buttonEventDict[btn.name] = eventList;
             }
         }
 
@@ -63,7 +65,7 @@ public class PackageAssetCopier
         var newButtons = newInstance.GetComponentsInChildren<Button>(true);
         foreach (var btn in newButtons)
         {
-            if (buttonEventDict.TryGetValue(btn.name, out var oldEvent))
+            if (buttonEventDict.TryGetValue(btn.name, out var eventList))
             {
                 // 기존 이벤트를 모두 제거
                 int removeCount = btn.onClick.GetPersistentEventCount();
@@ -72,15 +74,11 @@ public class PackageAssetCopier
                     UnityEventTools.RemovePersistentListener(btn.onClick, j);
                 }
 
-                int count = oldEvent.GetPersistentEventCount();
-                for (int i = 0; i < count; i++)
+                // 기존 이벤트를 복원
+                for (int i = 0; i < eventList.Count; i++)
                 {
-                    var target = oldEvent.GetPersistentTarget(i);
-                    var methodName = oldEvent.GetPersistentMethodName(i);
-                    if (target != null && !string.IsNullOrEmpty(methodName))
-                    {
-                        UnityEditor.Events.UnityEventTools.RegisterPersistentListener(btn.onClick, i, target, methodName);
-                    }
+                    var (target, methodName) = eventList[i];
+                    UnityEditor.Events.UnityEventTools.RegisterPersistentListener(btn.onClick, i, target, methodName);
                 }
             }
         }
@@ -92,27 +90,5 @@ public class PackageAssetCopier
 
         AssetDatabase.Refresh();
         Debug.Log("패키지 프리팹을 병합하여 프로젝트로 복사 완료! (Button OnClick 이벤트 유지)");
-    }
-
-    // ButtonClickedEvent 복제 함수
-    private static Button.ButtonClickedEvent CloneButtonClickedEvent(Button.ButtonClickedEvent source)
-    {
-        var clone = new Button.ButtonClickedEvent();
-        int count = source.GetPersistentEventCount();
-        for (int i = 0; i < count; i++)
-        {
-            var target = source.GetPersistentTarget(i);
-            var methodName = source.GetPersistentMethodName(i);
-            if (target != null && !string.IsNullOrEmpty(methodName))
-            {
-                var method = target.GetType().GetMethod(methodName, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
-                if (method != null)
-                {
-                    UnityAction action = (UnityAction)System.Delegate.CreateDelegate(typeof(UnityAction), target, method);
-                    UnityEditor.Events.UnityEventTools.AddPersistentListener(clone, action);
-                }
-            }
-        }
-        return clone;
     }
 }
