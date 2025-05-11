@@ -79,12 +79,7 @@ public class PackageAssetCopier
                     var methodName = oldEvent.GetPersistentMethodName(i);
                     if (target != null && !string.IsNullOrEmpty(methodName))
                     {
-                        var method = target.GetType().GetMethod(methodName, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
-                        if (method != null)
-                        {
-                            UnityAction action = (UnityAction)System.Delegate.CreateDelegate(typeof(UnityAction), target, method);
-                            UnityEventTools.AddPersistentListener(btn.onClick, action);
-                        }
+                        UnityEventTools.AddPersistentListener(btn.onClick, target as Object, methodName);
                     }
                 }
             }
