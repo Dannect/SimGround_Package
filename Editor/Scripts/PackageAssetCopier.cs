@@ -56,8 +56,8 @@ public class PackageAssetCopier
             }
         }
 
-        // 3. 새 프리팹 인스턴스 생성
-        GameObject newInstance = (GameObject)PrefabUtility.InstantiatePrefab(newPrefab);
+        // 3. 새 프리팹 인스턴스를 씬에 임시로 생성
+        GameObject newInstance = (GameObject)PrefabUtility.InstantiatePrefab(newPrefab, UnityEngine.SceneManagement.SceneManager.GetActiveScene());
 
         // 4. Button에 기존 OnClick 이벤트 복사 (SerializedObject 사용)
         var newButtons = newInstance.GetComponentsInChildren<Button>(true);
@@ -65,7 +65,6 @@ public class PackageAssetCopier
         {
             if (buttonEventDict.TryGetValue(btn.name, out var eventList))
             {
-                // SerializedObject로 직접 할당
                 SerializedObject so = new SerializedObject(btn);
                 var onClickProp = so.FindProperty("m_OnClick.m_PersistentCalls.m_Calls");
                 onClickProp.ClearArray();
