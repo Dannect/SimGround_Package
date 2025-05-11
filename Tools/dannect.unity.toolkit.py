@@ -6,8 +6,9 @@ import chardet
 # #region 프로젝트 폴더 및 패키지 정보 (최상단에 위치)
 # =========================
 project_dirs = [
-    r"E:\4.1.2.8_GetWater",
+    r"E:\3.1.2.2_ClassifyAnimals",
     r"E:\3.1.2.3_AroundAnimals",
+    r"E:\4.1.2.8_GetWater",
     # ... 필요시 추가
 ]
 
