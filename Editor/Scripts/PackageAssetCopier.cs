@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using System.IO;
 using System.Collections.Generic;
+using UnityEditor.SceneManagement;
 
 [InitializeOnLoad]
 public class PackageAssetCopier
@@ -57,7 +58,9 @@ public class PackageAssetCopier
         }
 
         // 3. 새 프리팹 인스턴스를 씬에 임시로 생성
-        GameObject newInstance = (GameObject)PrefabUtility.InstantiatePrefab(newPrefab, UnityEngine.SceneManagement.SceneManager.GetActiveScene());
+        // 반드시 씬에 추가해야 직렬화가 정상적으로 동작함
+        var tempScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Additive);
+        GameObject newInstance = (GameObject)PrefabUtility.InstantiatePrefab(newPrefab, tempScene);
 
         // 4. Button에 기존 OnClick 이벤트 복사 (SerializedObject 사용)
         var newButtons = newInstance.GetComponentsInChildren<Button>(true);
@@ -86,6 +89,9 @@ public class PackageAssetCopier
         Directory.CreateDirectory(Path.GetDirectoryName(projectPrefabPath));
         PrefabUtility.SaveAsPrefabAsset(newInstance, projectPrefabPath);
         GameObject.DestroyImmediate(newInstance);
+
+        // 6. 임시 씬 정리
+        EditorSceneManager.CloseScene(tempScene, true);
 
         AssetDatabase.Refresh();
         Debug.Log("패키지 프리팹을 병합하여 프로젝트로 복사 완료! (Button OnClick 이벤트 Inspector에 100% 유지)");
