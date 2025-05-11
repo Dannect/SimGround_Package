@@ -79,7 +79,7 @@ public class PackageAssetCopier
                     var methodName = oldEvent.GetPersistentMethodName(i);
                     if (target != null && !string.IsNullOrEmpty(methodName))
                     {
-                        UnityEventTools.AddPersistentListener(btn.onClick, target as Object, methodName);
+                        UnityEditor.Events.UnityEventTools.RegisterPersistentListener(btn.onClick, i, target, methodName);
                     }
                 }
             }
