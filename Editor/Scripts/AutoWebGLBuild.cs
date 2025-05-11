@@ -3,9 +3,9 @@ using System;
 using System.IO;
 using System.Linq;
 
+
 public class AutoWebGLBuild
 {
-    [MenuItem("Tools/자동 WebGL 빌드 시작")]
     public static void BuildWebGL()
     {
         // Build Settings에 등록된 씬 목록 자동 수집
