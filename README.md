@@ -5,38 +5,22 @@
 ## 주요 기능
 - Warning_Pop 등 공용 프리팹 제공
 - 프리팹 자동 교체/복사 에디터 스크립트
-- MCP, Cursor 등 외부 패키지 의존성 자동 설치
-- MCP 서버 자동 실행/설정 스크립트 포함
+- Cursor 외부 패키지 자동 설치
 
-## 설치 방법
+## 사용 방법
 
-1. 이 패키지를 GitHub에 업로드합니다.
-2. 각 프로젝트의 `Packages/manifest.json`에 아래와 같이 추가합니다.
-
-   ```json
-   {
-     "dependencies": {
-       "com.dannect.toolkit": "https://github.com/Dannect/SimGround_Package.git"
-     }
-   }
+1. Tools-dannect.unity.toolkit.py를 실행하여, project_dirs에 적용할 프로젝트의 설치 위치를 입력합니다.
+2. 명령 프롬프트(cmd)를 열고, `dannect.unity.toolkit.py` 파일이 있는 폴더로 이동합니다.  
+   - 이동 방법:  
+     ```
+     cd [폴더 경로]
+     ```
+     예시:  
+     ```
+     cd D:\SimGround_Package\Tools
+     ```
+3. 폴더로 이동한 후, 아래 명령어를 입력하여 스크립트를 실행하세요.  
    ```
-
-3. 유니티 에디터를 재시작하면 패키지가 자동으로 설치됩니다.
-
-## 사용법
-- Tools > 패키지 프리팹을 프로젝트로 복사 메뉴로 프리팹을 자동 교체할 수 있습니다.
-- MCP, Cursor 등 의존성 패키지는 자동으로 설치됩니다.
-- MCP 서버 자동 실행/설정은 에디터를 열 때 자동으로 동작합니다.
-
-## 폴더 구조
-com.dannect.toolkit/
-├─ package.json
-├─ README.md
-├─ Runtime/
-│ ├─ Warning_Pop.prefab
-│ ├─ GuideFolder/
-│ │ └─ Guide_Pop.prefab
-│ └─ Warning_Pop.cs
-└─ Editor/
-    ├─ PrefabAutoCopier.cs
-    └─ MCPServerAutoStart.cs
+   py dannect.unity.toolkit.py
+   ```
+   ※ 만약 `py` 명령어가 동작하지 않으면, 대신 `python`을 사용해도 됩니다.
