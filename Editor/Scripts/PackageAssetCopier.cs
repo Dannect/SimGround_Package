@@ -1,6 +1,7 @@
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.Events;
 using System.IO;
 using System.Collections.Generic;
 using UnityEditor.SceneManagement;
@@ -34,7 +35,7 @@ public class PackageAssetCopier
         }
 
         // 2. 기존 프리팹의 Button OnClick 정보 저장
-        Dictionary<string, List<(string, string)>> buttonEventDict = new Dictionary<string, List<(string, string)>>();
+        Dictionary<string, List<(Object, string)>> buttonEventDict = new Dictionary<string, List<(Object, string)>>();
         if (oldPrefab != null)
         {
             var oldButtons = oldPrefab.GetComponentsInChildren<Button>(true);
@@ -42,20 +43,15 @@ public class PackageAssetCopier
             {
                 var onClick = btn.onClick;
                 int eventCount = onClick.GetPersistentEventCount();
-                var eventList = new List<(string, string)>();
+                var eventList = new List<(Object, string)>();
                 for (int i = 0; i < eventCount; i++)
                 {
-                    var target = onClick.GetPersistentTarget(i) as Component;
+                    var target = onClick.GetPersistentTarget(i);
                     var methodName = onClick.GetPersistentMethodName(i);
                     if (target != null && !string.IsNullOrEmpty(methodName))
                     {
-                        // 프리팹 내부 컴포넌트만 저장
-                        string path = GetTransformPath(target.transform, oldPrefab.transform);
-                        if (!string.IsNullOrEmpty(path))
-                        {
-                            Debug.Log($"[Button OnClick] 버튼: {btn.name}, 타겟 경로: {path}, 메소드: {methodName}", btn.gameObject);
-                            eventList.Add((path, methodName));
-                        }
+                        Debug.Log($"[Button OnClick] 버튼: {btn.name}, 타겟 오브젝트: {target.name}, 메소드: {methodName}", btn.gameObject);
+                        eventList.Add((target, methodName));
                     }
                 }
                 buttonEventDict[btn.name] = eventList;
@@ -66,36 +62,32 @@ public class PackageAssetCopier
         var tempScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Additive);
         GameObject newInstance = (GameObject)PrefabUtility.InstantiatePrefab(newPrefab, tempScene);
 
-        // 4. Button에 기존 OnClick 이벤트 복사 (프리팹 내부 컴포넌트만)
+        // 4. Button에 기존 OnClick 이벤트 복사 (UnityEventTools 사용)
         var newButtons = newInstance.GetComponentsInChildren<Button>(true);
         foreach (var btn in newButtons)
         {
             if (buttonEventDict.TryGetValue(btn.name, out var eventList))
             {
-                SerializedObject so = new SerializedObject(btn);
-                var onClickProp = so.FindProperty("m_OnClick.m_PersistentCalls.m_Calls");
-                onClickProp.ClearArray();
-
-                for (int i = 0; i < eventList.Count; i++)
+                // 기존 이벤트를 모두 제거
+                int removeCount = btn.onClick.GetPersistentEventCount();
+                for (int j = removeCount - 1; j >= 0; j--)
                 {
-                    var (targetPath, methodName) = eventList[i];
-                    var targetTransform = FindTransformByPath(newInstance.transform, targetPath);
-                    if (targetTransform != null)
+                    UnityEditor.Events.UnityEventTools.RemovePersistentListener(btn.onClick, j);
+                }
+
+                // 기존 이벤트를 복원
+                foreach (var (target, methodName) in eventList)
+                {
+                    if (target != null && !string.IsNullOrEmpty(methodName))
                     {
-                        // Button, Image, CustomScript 등 컴포넌트 모두 지원
-                        var comp = targetTransform.GetComponent<Component>();
-                        if (comp != null)
+                        var method = target.GetType().GetMethod(methodName, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
+                        if (method != null)
                         {
-                            onClickProp.InsertArrayElementAtIndex(i);
-                            var call = onClickProp.GetArrayElementAtIndex(i);
-                            call.FindPropertyRelative("m_Target").objectReferenceValue = comp;
-                            call.FindPropertyRelative("m_MethodName").stringValue = methodName;
-                            call.FindPropertyRelative("m_Mode").enumValueIndex = 1; // PersistentListenerMode.EventDefined
-                            call.FindPropertyRelative("m_Arguments").FindPropertyRelative("m_ObjectArgumentAssemblyTypeName").stringValue = "";
+                            UnityAction action = (UnityAction)System.Delegate.CreateDelegate(typeof(UnityAction), target, method);
+                            UnityEditor.Events.UnityEventTools.AddPersistentListener(btn.onClick, action);
                         }
                     }
                 }
-                so.ApplyModifiedProperties();
             }
         }
 
@@ -109,25 +101,5 @@ public class PackageAssetCopier
 
         AssetDatabase.Refresh();
         Debug.Log("패키지 프리팹을 병합하여 프로젝트로 복사 완료! (Button OnClick 이벤트 Inspector에 100% 유지)");
-    }
-
-    // 프리팹 내부 경로 구하기
-    private static string GetTransformPath(Transform target, Transform root)
-    {
-        if (target == root) return "";
-        var path = target.name;
-        while (target.parent != null && target.parent != root)
-        {
-            target = target.parent;
-            path = target.name + "/" + path;
-        }
-        return path;
-    }
-
-    // 경로로 Transform 찾기
-    private static Transform FindTransformByPath(Transform root, string path)
-    {
-        if (string.IsNullOrEmpty(path)) return root;
-        return root.Find(path);
     }
 }
