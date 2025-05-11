@@ -66,7 +66,11 @@ public class PackageAssetCopier
             if (buttonEventDict.TryGetValue(btn.name, out var oldEvent))
             {
                 // 기존 이벤트를 모두 제거
-                UnityEventTools.RemovePersistentListeners(btn.onClick);
+                int persistentCount = btn.onClick.GetPersistentEventCount();
+                for (int i = persistentCount - 1; i >= 0; i--)
+                {
+                    UnityEditor.Events.UnityEventTools.RemovePersistentListener(btn.onClick, i);
+                }
 
                 int count = oldEvent.GetPersistentEventCount();
                 for (int i = 0; i < count; i++)
@@ -79,7 +83,7 @@ public class PackageAssetCopier
                         if (method != null)
                         {
                             UnityAction action = (UnityAction)System.Delegate.CreateDelegate(typeof(UnityAction), target, method);
-                            UnityEventTools.AddPersistentListener(btn.onClick, action);
+                            UnityEditor.Events.UnityEventTools.AddPersistentListener(btn.onClick, action);
                         }
                     }
                 }
