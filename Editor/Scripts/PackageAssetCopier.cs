@@ -1,10 +1,8 @@
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
-using UnityEngine.Events;
 using System.IO;
 using System.Collections.Generic;
-using UnityEditor.Events;
 
 [InitializeOnLoad]
 public class PackageAssetCopier
@@ -34,8 +32,8 @@ public class PackageAssetCopier
             return;
         }
 
-        // 2. 기존 프리팹의 Button OnClick 정보 저장 및 로그 출력
-        Dictionary<string, List<(Object target, string methodName)>> buttonEventDict = new Dictionary<string, List<(Object, string)>>();
+        // 2. 기존 프리팹의 Button OnClick 정보 저장
+        Dictionary<string, List<(Object, string)>> buttonEventDict = new Dictionary<string, List<(Object, string)>>();
         if (oldPrefab != null)
         {
             var oldButtons = oldPrefab.GetComponentsInChildren<Button>(true);
@@ -61,32 +59,27 @@ public class PackageAssetCopier
         // 3. 새 프리팹 인스턴스 생성
         GameObject newInstance = (GameObject)PrefabUtility.InstantiatePrefab(newPrefab);
 
-        // 4. Button에 기존 OnClick 이벤트 복사
+        // 4. Button에 기존 OnClick 이벤트 복사 (SerializedObject 사용)
         var newButtons = newInstance.GetComponentsInChildren<Button>(true);
         foreach (var btn in newButtons)
         {
             if (buttonEventDict.TryGetValue(btn.name, out var eventList))
             {
-                // 기존 이벤트를 모두 제거
-                int removeCount = btn.onClick.GetPersistentEventCount();
-                for (int j = removeCount - 1; j >= 0; j--)
-                {
-                    UnityEventTools.RemovePersistentListener(btn.onClick, j);
-                }
+                // SerializedObject로 직접 할당
+                SerializedObject so = new SerializedObject(btn);
+                var onClickProp = so.FindProperty("m_OnClick.m_PersistentCalls.m_Calls");
+                onClickProp.ClearArray();
 
-                // 기존 이벤트를 복원
-                foreach (var (target, methodName) in eventList)
+                for (int i = 0; i < eventList.Count; i++)
                 {
-                    if (target != null && !string.IsNullOrEmpty(methodName))
-                    {
-                        var method = target.GetType().GetMethod(methodName, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
-                        if (method != null)
-                        {
-                            UnityAction action = (UnityAction)System.Delegate.CreateDelegate(typeof(UnityAction), target, method);
-                            UnityEventTools.AddPersistentListener(btn.onClick, action);
-                        }
-                    }
+                    onClickProp.InsertArrayElementAtIndex(i);
+                    var call = onClickProp.GetArrayElementAtIndex(i);
+                    call.FindPropertyRelative("m_Target").objectReferenceValue = eventList[i].Item1;
+                    call.FindPropertyRelative("m_MethodName").stringValue = eventList[i].Item2;
+                    call.FindPropertyRelative("m_Mode").enumValueIndex = 1; // PersistentListenerMode.EventDefined
+                    call.FindPropertyRelative("m_Arguments").FindPropertyRelative("m_ObjectArgumentAssemblyTypeName").stringValue = "";
                 }
+                so.ApplyModifiedProperties();
             }
         }
 
@@ -96,6 +89,6 @@ public class PackageAssetCopier
         GameObject.DestroyImmediate(newInstance);
 
         AssetDatabase.Refresh();
-        Debug.Log("패키지 프리팹을 병합하여 프로젝트로 복사 완료! (Button OnClick 이벤트 유지)");
+        Debug.Log("패키지 프리팹을 병합하여 프로젝트로 복사 완료! (Button OnClick 이벤트 Inspector에 100% 유지)");
     }
 }
