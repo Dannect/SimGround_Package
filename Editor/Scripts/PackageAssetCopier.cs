@@ -1,6 +1,8 @@
 using UnityEditor;
 using UnityEngine;
 using System.IO;
+using UnityEngine.UI;
+using UnityEngine.Events;
 
 [InitializeOnLoad]
 public class PackageAssetCopier
@@ -32,11 +34,55 @@ public class PackageAssetCopier
             return;
         }
 
+        // 1. 복사 전, 패키지 프리팹의 Button OnClick 정보 로그
+        LogButtonOnClickInfo(packagePrefabPath);
+
+        // 2. 프리팹 복사
         Directory.CreateDirectory(Path.GetDirectoryName(absProjectPath));
         File.Copy(absPackagePath, absProjectPath, true);
         AssetDatabase.Refresh();
 
         Debug.Log("패키지 프리팹을 프로젝트로 복사 완료!");
+    }
+
+    // Button OnClick 정보 로그 메서드 추가
+    private static void LogButtonOnClickInfo(string prefabAssetPath)
+    {
+        // 프리팹을 임시로 에디터에서 로드
+        GameObject prefab = AssetDatabase.LoadAssetAtPath<GameObject>(prefabAssetPath);
+        if (prefab == null)
+        {
+            Debug.LogWarning("프리팹을 에셋DB에서 로드할 수 없습니다: " + prefabAssetPath);
+            return;
+        }
+
+        // 모든 Button 컴포넌트 순회
+        var buttons = prefab.GetComponentsInChildren<Button>(true);
+        foreach (var button in buttons)
+        {
+            Debug.Log($"[Button] {GetHierarchyPath(button.transform)}");
+
+            var onClick = button.onClick;
+            int count = onClick.GetPersistentEventCount();
+            for (int i = 0; i < count; i++)
+            {
+                Object target = onClick.GetPersistentTarget(i);
+                string method = onClick.GetPersistentMethodName(i);
+                Debug.Log($"  - OnClick {i + 1}: 오브젝트 = {target?.name ?? "None"}, 메소드 = {method}");
+            }
+        }
+    }
+
+    // 계층 경로 구하는 함수
+    private static string GetHierarchyPath(Transform transform)
+    {
+        string path = transform.name;
+        while (transform.parent != null)
+        {
+            transform = transform.parent;
+            path = transform.name + "/" + path;
+        }
+        return path;
     }
 
     public static void CopyBuildScriptFromPackage()
