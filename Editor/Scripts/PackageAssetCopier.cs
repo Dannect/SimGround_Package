@@ -68,7 +68,20 @@ public class PackageAssetCopier
             {
                 Object target = onClick.GetPersistentTarget(i);
                 string method = onClick.GetPersistentMethodName(i);
-                Debug.Log($"  - OnClick {i + 1}: 오브젝트 = {target?.name ?? "None"}, 메소드 = {method}");
+
+                // RuntimeOnly, EditorAndRuntime 등 모드 정보 가져오기
+                var callState = onClick.GetPersistentListenerState(i);
+
+                // Null 체크 및 정보 출력
+                string targetName = target != null ? target.name : "<None>";
+                string targetType = target != null ? target.GetType().Name : "<None>";
+
+                Debug.Log(
+                    $"  - OnClick {i + 1}: " +
+                    $"Mode = {callState}, " +
+                    $"오브젝트 = {targetName} ({targetType}), " +
+                    $"메소드 = {method}"
+                );
             }
         }
     }
