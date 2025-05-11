@@ -53,6 +53,7 @@ public class PackageAssetCopier
             return;
         }
 
+
         Directory.CreateDirectory(Path.GetDirectoryName(absProjectPath));
         File.Copy(absPackagePath, absProjectPath, true);
         AssetDatabase.Refresh();
