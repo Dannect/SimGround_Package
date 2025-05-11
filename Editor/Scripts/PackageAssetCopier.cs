@@ -92,9 +92,12 @@ public class PackageAssetCopier
             }
         }
 
-        // 6. 다시 Prefab으로 저장
-        PrefabUtility.SaveAsPrefabAsset(prefabInstance, projectPrefabPath);
-        GameObject.DestroyImmediate(prefabInstance);
+
+
+        Directory.CreateDirectory(Path.GetDirectoryName(absProjectPath));
+        File.Copy(absPackagePath, absProjectPath, true);
+        AssetDatabase.Refresh();
+
 
         AssetDatabase.Refresh();
         Debug.Log("패키지 프리팹을 병합하여 프로젝트로 복사 완료! (Button OnClick 이벤트 Inspector에 100% 유지)");
