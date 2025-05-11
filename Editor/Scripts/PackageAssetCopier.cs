@@ -25,7 +25,7 @@ public class PackageAssetCopier
             "Packages/com.dannect.toolkit/Editor/Scripts/AutoWebGLBuild.cs",
             "Assets/Editor/Scripts/AutoWebGLBuild.cs",
             "빌드 스크립트",
-            false
+            true
         );
     }
 
@@ -40,15 +40,25 @@ public class PackageAssetCopier
             return;
         }
 
-        // 대상 파일이 이미 존재하고 덮어쓰기가 비활성화된 경우
-        if (File.Exists(absProjectPath) && !overwrite)
+        // 대상 파일이 이미 존재하는 경우
+        if (File.Exists(absProjectPath))
         {
-            Debug.Log($"프로젝트에 이미 {assetType}이(가) 존재합니다. 건너뜁니다: {absProjectPath}");
-            return;
+            if (!overwrite)
+            {
+                Debug.Log($"프로젝트에 이미 {assetType}이(가) 존재합니다. 건너뜁니다: {absProjectPath}");
+                return;
+            }
+            else
+            {
+                // 기존 파일 삭제
+                File.Delete(absProjectPath);
+                AssetDatabase.Refresh();
+                Debug.Log($"기존 {assetType} 파일을 삭제했습니다: {absProjectPath}");
+            }
         }
 
         Directory.CreateDirectory(Path.GetDirectoryName(absProjectPath));
-        File.Copy(absPackagePath, absProjectPath, overwrite);
+        File.Copy(absPackagePath, absProjectPath, true);
         AssetDatabase.Refresh();
 
         Debug.Log($"패키지 {assetType}을(를) 프로젝트로 복사 완료!");
