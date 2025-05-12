@@ -1,3 +1,4 @@
+#if UNITY_EDITOR
 using UnityEditor;
 using UnityEngine;
 using System.IO;
@@ -119,4 +120,5 @@ public class PackageAssetCopier
 
         Debug.Log("패키지 빌드 스크립트를 프로젝트로 복사 완료!");
     }
-} 
+}
+#endif 
