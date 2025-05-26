@@ -3,16 +3,52 @@ import json
 import chardet
 import subprocess
 import sys
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 # =========================
 # #region 프로젝트 폴더 및 패키지 정보 (최상단에 위치)
 # =========================
 project_dirs = [
     r"E:\TDS",
-
+    # 40개 프로젝트 경로를 여기에 추가하세요
+    # 예시:
+    # r"E:\Project1",
+    # r"E:\Project2",
+    # r"E:\Project3",
+    # ... 계속 추가
     
-    # ... 필요시 추가
+    # 자동 스캔 기능을 원한다면 아래 함수를 사용하세요
+    # get_unity_projects_from_directory(r"E:\UnityProjects")
 ]
+
+def get_unity_projects_from_directory(base_dir):
+    """지정된 디렉토리에서 Unity 프로젝트들을 자동으로 찾습니다."""
+    unity_projects = []
+    
+    if not os.path.exists(base_dir):
+        print(f"기본 디렉토리가 존재하지 않습니다: {base_dir}")
+        return unity_projects
+    
+    try:
+        for item in os.listdir(base_dir):
+            item_path = os.path.join(base_dir, item)
+            if os.path.isdir(item_path):
+                # Unity 프로젝트인지 확인 (ProjectSettings 폴더 존재 여부)
+                project_settings = os.path.join(item_path, "ProjectSettings")
+                assets_folder = os.path.join(item_path, "Assets")
+                
+                if os.path.exists(project_settings) and os.path.exists(assets_folder):
+                    unity_projects.append(item_path)
+                    print(f"Unity 프로젝트 발견: {item}")
+    
+    except Exception as e:
+        print(f"디렉토리 스캔 오류: {e}")
+    
+    return unity_projects
+
+# 자동 스캔을 사용하려면 아래 주석을 해제하고 경로를 수정하세요
+# project_dirs.extend(get_unity_projects_from_directory(r"E:\UnityProjects"))
 
 git_packages = {
     "com.boxqkrtm.ide.cursor": "https://github.com/boxqkrtm/com.unity.ide.cursor.git",
@@ -24,6 +60,11 @@ git_packages = {
 GIT_BASE_URL = "https://github.com/Dannect/"
 DEFAULT_BRANCH = "main"
 DEV_BRANCH = "dev"
+
+# Unity CLI 설정
+UNITY_EDITOR_PATH = r"C:\Program Files\Unity\Hub\Editor\2022.3.45f1\Editor\Unity.exe"  # Unity 설치 경로
+UNITY_TIMEOUT = 300  # Unity 실행 타임아웃 (초)
+UNITY_LOG_LEVEL = "info"  # Unity 로그 레벨 (debug, info, warning, error)
 # endregion
 
 # =========================
@@ -373,6 +414,226 @@ def commit_and_push_changes(project_path, commit_message="Auto commit: Unity pro
 # endregion
 
 # =========================
+# #region Unity CLI 자동화 함수들
+# =========================
+def find_unity_editor_path():
+    """Unity Editor 경로를 자동으로 찾습니다."""
+    # 일반적인 Unity 설치 경로들
+    common_paths = [
+        r"C:\Program Files\Unity\Hub\Editor",
+        r"C:\Program Files\Unity\Editor",
+        r"C:\Program Files (x86)\Unity\Hub\Editor",
+        r"C:\Program Files (x86)\Unity\Editor"
+    ]
+    
+    for base_path in common_paths:
+        if os.path.exists(base_path):
+            # 버전 폴더들을 찾아서 가장 최신 버전 선택
+            try:
+                versions = [d for d in os.listdir(base_path) if os.path.isdir(os.path.join(base_path, d))]
+                if versions:
+                    # 버전 정렬 (최신 버전 우선)
+                    versions.sort(reverse=True)
+                    unity_exe = os.path.join(base_path, versions[0], "Editor", "Unity.exe")
+                    if os.path.exists(unity_exe):
+                        return unity_exe
+            except:
+                continue
+    
+    return None
+
+def run_unity_batch_mode(project_path, method_name=None, timeout=UNITY_TIMEOUT):
+    """Unity를 배치 모드로 실행하여 Editor 스크립트를 실행합니다."""
+    unity_path = UNITY_EDITOR_PATH
+    
+    # Unity 경로가 존재하지 않으면 자동 검색
+    if not os.path.exists(unity_path):
+        print(f"Unity 경로를 찾을 수 없습니다: {unity_path}")
+        print("Unity 경로 자동 검색 중...")
+        unity_path = find_unity_editor_path()
+        if not unity_path:
+            print("Unity Editor를 찾을 수 없습니다. UNITY_EDITOR_PATH를 확인해주세요.")
+            return False
+        print(f"Unity 경로 발견: {unity_path}")
+    
+    project_name = get_project_name_from_path(project_path)
+    print(f"Unity 배치 모드 실행 중: {project_name}")
+    
+    # Unity 명령어 구성
+    cmd = [
+        unity_path,
+        "-batchmode",           # 배치 모드
+        "-quit",               # 완료 후 종료
+        "-projectPath", project_path,  # 프로젝트 경로
+        "-logFile", "-",       # 로그를 콘솔에 출력
+    ]
+    
+    # 특정 메서드 실행이 지정된 경우
+    if method_name:
+        cmd.extend(["-executeMethod", method_name])
+    
+    try:
+        print(f"Unity 명령어: {' '.join(cmd)}")
+        result = subprocess.run(
+            cmd,
+            cwd=project_path,
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            encoding='utf-8'
+        )
+        
+        # Unity 로그 출력
+        if result.stdout:
+            print("=== Unity 출력 ===")
+            print(result.stdout)
+        
+        if result.stderr:
+            print("=== Unity 오류 ===")
+            print(result.stderr)
+        
+        # Unity는 성공해도 exit code가 0이 아닐 수 있음
+        if result.returncode == 0:
+            print(f"Unity 배치 모드 완료: {project_name}")
+            return True
+        else:
+            print(f"Unity 배치 모드 경고 (exit code: {result.returncode}): {project_name}")
+            # 로그에서 실제 오류 확인
+            if "error" in result.stdout.lower() or "exception" in result.stdout.lower():
+                print("실제 오류 발견, 실패로 처리")
+                return False
+            else:
+                print("경고이지만 정상 처리된 것으로 판단")
+                return True
+                
+    except subprocess.TimeoutExpired:
+        print(f"Unity 실행 타임아웃 ({timeout}초): {project_name}")
+        return False
+    except Exception as e:
+        print(f"Unity 실행 오류: {e}")
+        return False
+
+def process_unity_project_batch(project_path):
+    """Unity 프로젝트를 배치 모드로 처리합니다."""
+    project_name = get_project_name_from_path(project_path)
+    
+    if not os.path.exists(project_path):
+        print(f"프로젝트 폴더가 존재하지 않습니다: {project_path}")
+        return False
+    
+    # Unity 프로젝트인지 확인
+    project_settings = os.path.join(project_path, "ProjectSettings", "ProjectSettings.asset")
+    if not os.path.exists(project_settings):
+        print(f"Unity 프로젝트가 아닙니다: {project_path}")
+        return False
+    
+    print(f"\n=== {project_name} Unity 배치 처리 시작 ===")
+    
+    # Unity 배치 모드 실행 (패키지 임포트 및 Editor 스크립트 실행)
+    success = run_unity_batch_mode(project_path)
+    
+    if success:
+        print(f"=== {project_name} Unity 배치 처리 완료 ===")
+        return True
+    else:
+        print(f"=== {project_name} Unity 배치 처리 실패 ===")
+        return False
+
+def create_unity_batch_script(project_path):
+    """Unity Editor에서 실행할 배치 스크립트를 생성합니다."""
+    script_dir = os.path.join(project_path, "Assets", "Editor", "BatchScripts")
+    os.makedirs(script_dir, exist_ok=True)
+    
+    script_path = os.path.join(script_dir, "AutoBatchProcessor.cs")
+    
+    script_content = '''using UnityEngine;
+using UnityEditor;
+using System.IO;
+
+public class AutoBatchProcessor
+{
+    [MenuItem("Tools/Process Batch")]
+    public static void ProcessBatch()
+    {
+        Debug.Log("=== 배치 처리 시작 ===");
+        
+        // 패키지 임포트 대기
+        AssetDatabase.Refresh();
+        
+        // PackageAssetCopier가 있다면 실행
+        var copierType = System.Type.GetType("PackageAssetCopier");
+        if (copierType != null)
+        {
+            var method = copierType.GetMethod("CopyFilesFromPackage", 
+                System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
+            if (method != null)
+            {
+                Debug.Log("PackageAssetCopier.CopyFilesFromPackage 실행");
+                method.Invoke(null, null);
+            }
+        }
+        
+        // 최종 Asset Database 갱신
+        AssetDatabase.Refresh();
+        AssetDatabase.SaveAssets();
+        
+        Debug.Log("=== 배치 처리 완료 ===");
+    }
+}
+'''
+    
+    try:
+        with open(script_path, 'w', encoding='utf-8') as f:
+            f.write(script_content)
+        print(f"배치 스크립트 생성 완료: {script_path}")
+        return True
+    except Exception as e:
+        print(f"배치 스크립트 생성 실패: {e}")
+        return False
+
+def process_multiple_projects_parallel(project_dirs, max_workers=3):
+    """여러 Unity 프로젝트를 병렬로 처리합니다."""
+    print(f"\n=== 병렬 처리 시작 (최대 {max_workers}개 동시 실행) ===")
+    
+    success_count = 0
+    fail_count = 0
+    results = []
+    
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        # 모든 프로젝트를 병렬로 제출
+        future_to_project = {
+            executor.submit(process_unity_project_batch, project_dir): project_dir 
+            for project_dir in project_dirs if os.path.exists(project_dir)
+        }
+        
+        # 완료된 작업들을 처리
+        for future in as_completed(future_to_project):
+            project_dir = future_to_project[future]
+            project_name = get_project_name_from_path(project_dir)
+            
+            try:
+                result = future.result()
+                if result:
+                    success_count += 1
+                    print(f"✅ {project_name} 병렬 처리 완료")
+                else:
+                    fail_count += 1
+                    print(f"❌ {project_name} 병렬 처리 실패")
+                results.append((project_name, result))
+            except Exception as e:
+                fail_count += 1
+                print(f"❌ {project_name} 병렬 처리 예외: {e}")
+                results.append((project_name, False))
+    
+    print(f"\n=== 병렬 처리 결과 ===")
+    print(f"성공: {success_count}개")
+    print(f"실패: {fail_count}개")
+    print(f"총 처리: {success_count + fail_count}개")
+    
+    return results
+# endregion
+
+# =========================
 # #region UTF-8 변환 함수
 # =========================
 def convert_to_utf8(filepath):
@@ -435,14 +696,24 @@ def print_usage():
     print("python dannect.unity.toolkit.py [옵션]")
     print("")
     print("옵션:")
-    print("  --help        이 도움말을 표시합니다")
-    print("  --skip-git    Git 작업을 건너뜁니다 (UTF-8 변환과 패키지 추가만 실행)")
-    print("  --git-only    Git 작업만 실행합니다 (UTF-8 변환과 패키지 추가 건너뜀)")
+    print("  --help           이 도움말을 표시합니다")
+    print("  --skip-git       Git 작업을 건너뜁니다 (UTF-8 변환과 패키지 추가만 실행)")
+    print("  --git-only       Git 작업만 실행합니다 (UTF-8 변환과 패키지 추가 건너뜀)")
+    print("  --unity-batch    Unity 배치 모드로 Editor 스크립트 실행 (40개 프로젝트 자동화)")
+    print("  --full-auto      모든 작업 + Unity 배치 모드 실행 (완전 자동화)")
+    print("  --parallel       Unity 배치 모드를 병렬로 실행 (빠른 처리, 메모리 사용량 증가)")
     print("")
     print("기본 동작:")
     print("1. C# 파일 UTF-8 변환")
     print("2. Unity 패키지 추가")
     print("3. Git 커밋 및 푸시 (계층구조 최하위 브랜치 또는 dev 브랜치)")
+    print("")
+    print("Unity 배치 모드 (--unity-batch, --full-auto):")
+    print("- Unity Editor를 배치 모드로 실행하여 Editor 스크립트 자동 실행")
+    print("- PackageAssetCopier 등의 [InitializeOnLoad] 스크립트 실행")
+    print("- 40개 프로젝트를 순차적으로 자동 처리 (기본)")
+    print("- --parallel 옵션으로 병렬 처리 가능 (3개씩 동시 실행)")
+    print("- Unity GUI 없이 백그라운드에서 실행")
     print("")
     print("Git 브랜치 전략:")
     print("- 브랜치 계층구조에서 가장 깊은(아래) 브랜치를 우선 사용")
@@ -462,8 +733,17 @@ def main():
     # 명령행 인수 확인
     skip_git = "--skip-git" in sys.argv
     git_only = "--git-only" in sys.argv
+    unity_batch = "--unity-batch" in sys.argv
+    full_auto = "--full-auto" in sys.argv
+    parallel = "--parallel" in sys.argv
     
-    if git_only:
+    if full_auto:
+        print("완전 자동화 모드: 모든 작업 + Unity 배치 모드 실행...\n")
+        unity_batch = True  # full_auto는 unity_batch 포함
+    elif unity_batch:
+        print("Unity 배치 모드만 실행합니다...\n")
+        skip_git = True  # unity_batch만 실행할 때는 다른 작업 건너뜀
+    elif git_only:
         print("Git 작업만 실행합니다...\n")
     elif skip_git:
         print("Git 작업을 건너뜁니다...\n")
@@ -507,6 +787,49 @@ def main():
                 commit_and_push_changes(project_dir, "Auto commit: Unity project updates and package additions")
             else:
                 print(f"프로젝트 폴더 없음: {project_dir}")
+
+    # 4. Unity 배치 모드 실행 (unity-batch 또는 full-auto인 경우에만 실행)
+    if unity_batch:
+        print("\n4. Unity 배치 모드 실행 시작...")
+        print(f"총 {len(project_dirs)}개 프로젝트 처리 예정")
+        
+        # 모든 프로젝트에 배치 스크립트 생성
+        print("배치 스크립트 생성 중...")
+        for project_dir in project_dirs:
+            if os.path.exists(project_dir):
+                create_unity_batch_script(project_dir)
+        
+        if parallel:
+            # 병렬 처리
+            print("병렬 처리 모드로 실행합니다...")
+            process_multiple_projects_parallel(project_dirs, max_workers=3)
+        else:
+            # 순차 처리 (기본)
+            print("순차 처리 모드로 실행합니다...")
+            success_count = 0
+            fail_count = 0
+            
+            for i, project_dir in enumerate(project_dirs, 1):
+                project_name = get_project_name_from_path(project_dir)
+                print(f"\n[{i}/{len(project_dirs)}] {project_name} 처리 중...")
+                
+                if not os.path.exists(project_dir):
+                    print(f"프로젝트 폴더 없음: {project_dir}")
+                    fail_count += 1
+                    continue
+                
+                # Unity 배치 모드 실행
+                if process_unity_project_batch(project_dir):
+                    success_count += 1
+                    print(f"✅ {project_name} 처리 완료")
+                else:
+                    fail_count += 1
+                    print(f"❌ {project_name} 처리 실패")
+            
+            print(f"\n=== Unity 배치 모드 결과 ===")
+            print(f"성공: {success_count}개")
+            print(f"실패: {fail_count}개")
+            print(f"총 처리: {success_count + fail_count}개")
     
     print("\n=== 모든 작업 완료 ===")
 
