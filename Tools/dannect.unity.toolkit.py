@@ -6,10 +6,24 @@ import chardet
 # #region 프로젝트 폴더 및 패키지 정보 (최상단에 위치)
 # =========================
 project_dirs = [
+<<<<<<< Updated upstream
     r"E:\3.1.2.2_ClassifyAnimals",
     r"E:\3.1.2.3_AroundAnimals",
     r"E:\4.1.2.8_GetWater",
     # ... 필요시 추가
+=======
+    r"E:\5.1.3.3_Experiment",
+    r"E:\TDS",
+    # 40개 프로젝트 경로를 여기에 추가하세요
+    # 예시:
+    # r"E:\Project1",
+    # r"E:\Project2",
+    # r"E:\Project3",
+    # ... 계속 추가
+    
+    # 자동 스캔 기능을 원한다면 아래 함수를 사용하세요
+    # get_unity_projects_from_directory(r"E:\UnityProjects")
+>>>>>>> Stashed changes
 ]
 
 git_packages = {
