@@ -1,6 +1,5 @@
 import os
 import json
-import chardet
 import subprocess
 import sys
 import time
@@ -20,6 +19,7 @@ project_dirs = [
     
     # 자동 스캔 기능을 원한다면 아래 함수를 사용하세요
     # get_unity_projects_from_directory(r"E:\UnityProjects")
+
 ]
 
 def get_unity_projects_from_directory(base_dir):
@@ -640,23 +640,8 @@ def process_multiple_projects_parallel(project_dirs, max_workers=3):
 # endregion
 
 # =========================
-# #region UTF-8 변환 및 Unity 6 API 호환성 함수
+# #region Unity 6 API 호환성 함수
 # =========================
-def convert_to_utf8(filepath):
-    # 파일의 원래 인코딩 감지
-    with open(filepath, 'rb') as f:
-        raw = f.read()
-        result = chardet.detect(raw)
-        encoding = result['encoding']
-    # 이미 UTF-8이면 변환하지 않음
-    if encoding and encoding.lower().replace('-', '') == 'utf8':
-        return False  # 변환하지 않음
-    # 감지된 인코딩으로 읽어서 UTF-8로 저장
-    with open(filepath, 'r', encoding=encoding, errors='ignore') as f:
-        content = f.read()
-    with open(filepath, 'w', encoding='utf-8') as f:
-        f.write(content)
-    return True  # 변환함
 
 def fix_unity6_deprecated_apis(filepath):
     """Unity 6에서 deprecated된 API들을 최신 API로 교체합니다."""
@@ -838,6 +823,200 @@ def create_unity6_compatibility_report(project_dirs):
         print(f"📋 호환성 보고서 생성 완료: {report_path}")
     except Exception as e:
         print(f"❌ 보고서 생성 실패: {e}")
+# endregion
+
+# =========================
+# #region SystemManager 메소드 추가 함수들
+# =========================
+
+# SystemManager에 추가할 메소드 템플릿들
+SYSTEM_MANAGER_METHODS = {
+    "AllowKeyboardInput": '''    public void AllowKeyboardInput(bool isAllow)
+    {
+        Debug.Log("AllowKeyboardInput!" + isAllow);
+#if UNITY_WEBGL && !UNITY_EDITOR
+        WebGLInput.captureAllKeyboardInput = isAllow;
+#endif
+    }''',
+    
+    # 다른 메소드들도 여기에 추가 가능
+    # "OtherMethod": '''    public void OtherMethod()
+    # {
+    #     // 메소드 내용
+    # }''',
+}
+
+def find_system_manager_files(project_dirs):
+    """모든 프로젝트에서 SystemManager.cs 파일들을 찾습니다."""
+    system_manager_files = []
+    
+    for project_dir in project_dirs:
+        if not os.path.exists(project_dir):
+            continue
+            
+        assets_dir = os.path.join(project_dir, "Assets")
+        if not os.path.exists(assets_dir):
+            continue
+        
+        project_name = get_project_name_from_path(project_dir)
+        
+        # Assets 폴더에서 SystemManager.cs 파일 찾기
+        for root, dirs, files in os.walk(assets_dir):
+            # Library, Temp 등 불필요한 폴더 제외
+            dirs[:] = [d for d in dirs if not d.startswith('.') and d not in ['Library', 'Temp', 'Logs']]
+            
+            for file in files:
+                if file == "SystemManager.cs":
+                    filepath = os.path.join(root, file)
+                    system_manager_files.append((project_name, filepath))
+                    print(f"SystemManager 발견: {project_name} - {os.path.relpath(filepath, project_dir)}")
+    
+    return system_manager_files
+
+def has_method(filepath, method_name):
+    """스크립트에 특정 메소드가 이미 존재하는지 확인합니다."""
+    try:
+        with open(filepath, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        # 메소드 시그니처 패턴들 (다양한 접근 제한자와 형태 고려)
+        import re
+        patterns = [
+            rf'(public|private|protected|internal)?\s*(static)?\s*(void|bool|int|float|string|[A-Z]\w*)\s+{method_name}\s*\(',
+            rf'{method_name}\s*\(',  # 단순 패턴도 확인
+        ]
+        
+        for pattern in patterns:
+            if re.search(pattern, content, re.IGNORECASE):
+                return True
+        
+        return False
+        
+    except Exception as e:
+        print(f"메소드 존재 확인 실패 ({filepath}): {e}")
+        return True  # 오류 시 안전하게 이미 존재한다고 가정
+
+def add_method_to_script(filepath, method_name, method_content):
+    """스크립트의 클래스 끝에 메소드를 추가합니다."""
+    try:
+        with open(filepath, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        # 클래스의 마지막 닫는 중괄호 찾기
+        lines = content.split('\n')
+        last_brace_index = -1
+        brace_count = 0
+        
+        # 역순으로 찾아서 클래스의 마지막 중괄호 위치 찾기
+        for i in range(len(lines) - 1, -1, -1):
+            line = lines[i].strip()
+            if line == '}':
+                if brace_count == 0:
+                    last_brace_index = i
+                    break
+                brace_count += 1
+            elif line == '{':
+                brace_count -= 1
+        
+        if last_brace_index == -1:
+            print(f"클래스 닫는 중괄호를 찾을 수 없습니다: {filepath}")
+            return False
+        
+        # 메소드 추가
+        lines.insert(last_brace_index, "")  # 빈 줄 추가
+        lines.insert(last_brace_index + 1, method_content)
+        
+        # 파일에 저장
+        with open(filepath, 'w', encoding='utf-8') as f:
+            f.write('\n'.join(lines))
+        
+        return True
+        
+    except Exception as e:
+        print(f"메소드 추가 실패 ({filepath}): {e}")
+        return False
+
+def add_methods_to_system_managers(project_dirs, method_names=None):
+    """모든 SystemManager에 지정된 메소드들을 추가합니다."""
+    if method_names is None:
+        method_names = ["AllowKeyboardInput"]  # 기본값
+    
+    print(f"\n=== SystemManager 메소드 추가 시작 ===")
+    print(f"추가할 메소드: {', '.join(method_names)}")
+    
+    # SystemManager 파일들 찾기
+    system_manager_files = find_system_manager_files(project_dirs)
+    
+    if not system_manager_files:
+        print("SystemManager.cs 파일을 찾을 수 없습니다.")
+        return False
+    
+    print(f"총 {len(system_manager_files)}개 SystemManager 파일 발견")
+    
+    success_count = 0
+    skip_count = 0
+    fail_count = 0
+    
+    for project_name, filepath in system_manager_files:
+        print(f"\n--- {project_name} SystemManager 처리 ---")
+        
+        methods_added = []
+        methods_skipped = []
+        
+        for method_name in method_names:
+            if method_name not in SYSTEM_MANAGER_METHODS:
+                print(f"  ❌ 알 수 없는 메소드: {method_name}")
+                continue
+            
+            # 메소드가 이미 존재하는지 확인
+            if has_method(filepath, method_name):
+                print(f"  ⚪ {method_name}: 이미 존재함, 생략")
+                methods_skipped.append(method_name)
+                continue
+            
+            # 메소드 추가
+            method_content = SYSTEM_MANAGER_METHODS[method_name]
+            if add_method_to_script(filepath, method_name, method_content):
+                print(f"  ✅ {method_name}: 추가 완료")
+                methods_added.append(method_name)
+            else:
+                print(f"  ❌ {method_name}: 추가 실패")
+        
+        # 결과 집계
+        if methods_added:
+            success_count += 1
+            print(f"  📊 {project_name}: {len(methods_added)}개 메소드 추가됨")
+        elif methods_skipped:
+            skip_count += 1
+            print(f"  📊 {project_name}: 모든 메소드가 이미 존재함")
+        else:
+            fail_count += 1
+            print(f"  📊 {project_name}: 메소드 추가 실패")
+    
+    print(f"\n=== SystemManager 메소드 추가 결과 ===")
+    print(f"성공 (메소드 추가됨): {success_count}개")
+    print(f"생략 (이미 존재): {skip_count}개") 
+    print(f"실패: {fail_count}개")
+    print(f"총 처리: {len(system_manager_files)}개")
+    
+    return success_count > 0
+
+def add_custom_method_to_system_managers(project_dirs, method_name, method_content):
+    """사용자 정의 메소드를 SystemManager에 추가합니다."""
+    print(f"\n=== 사용자 정의 메소드 추가: {method_name} ===")
+    
+    # 임시로 메소드 템플릿에 추가
+    original_methods = SYSTEM_MANAGER_METHODS.copy()
+    SYSTEM_MANAGER_METHODS[method_name] = method_content
+    
+    try:
+        result = add_methods_to_system_managers(project_dirs, [method_name])
+        return result
+    finally:
+        # 원래 템플릿으로 복원
+        SYSTEM_MANAGER_METHODS.clear()
+        SYSTEM_MANAGER_METHODS.update(original_methods)
+
 # endregion
 
 # =========================
@@ -1402,8 +1581,8 @@ def print_usage():
     print("")
     print("옵션:")
     print("  --help           이 도움말을 표시합니다")
-    print("  --skip-git       Git 작업을 건너뜁니다 (UTF-8 변환과 패키지 추가만 실행)")
-    print("  --git-only       Git 작업만 실행합니다 (UTF-8 변환과 패키지 추가 건너뜀)")
+    print("  --skip-git       Git 작업을 건너뜁니다 (패키지 추가만 실행)")
+    print("  --git-only       Git 작업만 실행합니다 (패키지 추가 건너뜀)")
     print("  --unity-batch    Unity 배치 모드로 Editor 스크립트 실행 (40개 프로젝트 자동화)")
     print("  --full-auto      모든 작업 + Unity 배치 모드 실행 (완전 자동화)")
     print("  --parallel       Unity 배치 모드를 병렬로 실행 (빠른 처리, 메모리 사용량 증가)")
@@ -1412,12 +1591,11 @@ def print_usage():
     print("  --clean-builds   모든 빌드 출력물 정리")
     print("  --fix-unity6     Unity 6 deprecated API 자동 수정 (FindObjectOfType 등)")
     print("  --check-unity6   Unity 6 호환성 검사 보고서 생성")
+    print("  --add-system-methods SystemManager에 공통 메소드 추가 (AllowKeyboardInput 등)")
     print("")
     print("기본 동작:")
-    print("1. C# 파일 UTF-8 변환")
-    print("2. Unity 6 deprecated API 자동 수정")
-    print("3. Unity 패키지 추가")
-    print("4. Git 커밋 및 푸시 (계층구조 최하위 브랜치 또는 dev 브랜치)")
+    print("1. Unity 패키지 추가")
+    print("2. Git 커밋 및 푸시 (계층구조 최하위 브랜치 또는 dev 브랜치)")
     print("")
     print("Unity 6 호환성 수정 (--fix-unity6):")
     print("- FindObjectOfType -> FindFirstObjectByType 자동 교체")
@@ -1445,6 +1623,14 @@ def print_usage():
     print("- --build-parallel로 병렬 빌드 가능 (2개씩 동시 빌드)")
     print("- 빌드 시간: 프로젝트당 5-15분 (WebGL 최적화 포함)")
     print("")
+    print("SystemManager 메소드 추가 (--add-system-methods):")
+    print("- 모든 프로젝트의 SystemManager.cs 파일을 자동 탐색")
+    print("- 클래스의 마지막 부분(닫는 중괄호 직전)에 메소드 추가")
+    print("- 기본 메소드: AllowKeyboardInput (WebGL 키보드 입력 제어)")
+    print("- 같은 이름의 메소드가 이미 존재하면 자동 생략")
+    print("- 다른 메소드도 SYSTEM_MANAGER_METHODS 딕셔너리에 추가하여 사용 가능")
+    print("- 사용자 정의 메소드는 add_custom_method_to_system_managers() 함수 사용")
+    print("")
     print("Git 브랜치 전략:")
     print("- 브랜치 계층구조에서 가장 깊은(아래) 브랜치를 우선 사용")
     print("- 커밋 수가 많고 최근에 작업된 브랜치 선택")
@@ -1471,6 +1657,7 @@ def main():
     clean_builds = "--clean-builds" in sys.argv
     fix_unity6 = "--fix-unity6" in sys.argv
     check_unity6 = "--check-unity6" in sys.argv
+    add_system_methods = "--add-system-methods" in sys.argv
     
     if full_auto:
         print("완전 자동화 모드: 모든 작업 + Unity 배치 모드 실행...\n")
@@ -1492,51 +1679,26 @@ def main():
     if fix_unity6:
         process_unity6_compatibility(project_dirs)
         return
+    
+    # SystemManager 메소드 추가만 실행하는 경우
+    if add_system_methods:
+        add_methods_to_system_managers(project_dirs)
+        return
 
-    # 1. UTF-8 변환 (git-only가 아닌 경우에만 실행)
+    # 패키지 추가 (git-only가 아닌 경우에만 실행)
     if not git_only:
-        print("1. C# 파일 UTF-8 변환 작업 시작...")
-        for project_dir in project_dirs:
-            project_name = get_project_name_from_path(project_dir)
-            print(f"\n--- {project_name} UTF-8 변환 ---")
-            
-            root_dir = os.path.join(project_dir, "Assets")
-            if not os.path.exists(root_dir):
-                print(f"Assets 폴더 없음: {project_dir}")
-                continue
-                
-            for subdir, _, files in os.walk(root_dir):
-                for file in files:
-                    if file.endswith('.cs'):
-                        try:
-                            changed = convert_to_utf8(os.path.join(subdir, file))
-                            if changed:
-                                print(f"  {file} 변환 완료")
-                            else:
-                                print(f"  {file} 이미 UTF-8, 변환 생략")
-                        except Exception as e:
-                            print(f"  {file} 변환 실패: {e}")
-
-        # 2. Unity 6 deprecated API 자동 수정
-        print("\n2. Unity 6 deprecated API 자동 수정 시작...")
-        unity6_changes_made = process_unity6_compatibility(project_dirs)
-
-        # 3. 각 프로젝트에 패키지 추가
-        print("\n3. Unity 패키지 추가 작업 시작...")
+        print("1. Unity 패키지 추가 작업 시작...")
         for project_dir in project_dirs:
             project_name = get_project_name_from_path(project_dir)
             print(f"\n--- {project_name} 패키지 추가 ---")
             add_git_packages_to_manifest(project_dir, git_packages)
 
-    # 4. Git 커밋 및 푸시 (skip-git가 아닌 경우에만 실행)
+    # 2. Git 커밋 및 푸시 (skip-git가 아닌 경우에만 실행)
     if not skip_git:
-        print("\n4. Git 커밋 및 푸시 작업 시작...")
+        print("\n2. Git 커밋 및 푸시 작업 시작...")
         
-        # 커밋 메시지 생성 (Unity 6 호환성 수정 포함)
-        commit_message = "Auto commit: Unity project updates"
-        if 'unity6_changes_made' in locals() and unity6_changes_made:
-            commit_message += ", Unity 6 API compatibility fixes"
-        commit_message += ", and package additions"
+        # 커밋 메시지 생성
+        commit_message = "Auto commit: Unity project updates and package additions"
         
         for project_dir in project_dirs:
             if os.path.exists(project_dir):
@@ -1544,9 +1706,9 @@ def main():
             else:
                 print(f"프로젝트 폴더 없음: {project_dir}")
 
-    # 5. Unity 배치 모드 실행 (unity-batch 또는 full-auto인 경우에만 실행)
+    # 3. Unity 배치 모드 실행 (unity-batch 또는 full-auto인 경우에만 실행)
     if unity_batch:
-        print("\n5. Unity 배치 모드 실행 시작...")
+        print("\n3. Unity 배치 모드 실행 시작...")
         print(f"총 {len(project_dirs)}개 프로젝트 처리 예정")
         
         # 모든 프로젝트에 배치 스크립트 생성
@@ -1587,14 +1749,14 @@ def main():
             print(f"실패: {fail_count}개")
             print(f"총 처리: {success_count + fail_count}개")
     
-    # 6. 빌드 출력물 정리 (clean-builds인 경우에만 실행)
+    # 4. 빌드 출력물 정리 (clean-builds인 경우에만 실행)
     if clean_builds:
-        print("\n6. 빌드 출력물 정리 시작...")
+        print("\n4. 빌드 출력물 정리 시작...")
         clean_build_outputs(project_dirs)
     
-    # 7. Unity WebGL 프로젝트 빌드 (build-webgl인 경우에만 실행)
+    # 5. Unity WebGL 프로젝트 빌드 (build-webgl인 경우에만 실행)
     if build_webgl:
-        print(f"\n7. Unity WebGL 프로젝트 빌드 시작...")
+        print(f"\n5. Unity WebGL 프로젝트 빌드 시작...")
         
         print(f"🌐 빌드 타겟: WebGL")
         print(f"📊 총 {len(project_dirs)}개 프로젝트 빌드 예정")
