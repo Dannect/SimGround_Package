@@ -62,6 +62,17 @@ GIT_BASE_URL = "https://github.com/mmporong/"
 DEFAULT_BRANCH = "main"
 DEV_BRANCH = "dev"
 
+# 커밋 메시지 템플릿 (통일된 커밋 메시지) - 대문자 타입
+COMMIT_MESSAGES = {
+    "package_update": "FEAT: Unity 패키지 업데이트 및 자동 설정 적용",
+    "unity6_compatibility": "FIX: Unity 6 호환성 API 수정 및 최적화",
+    "system_manager_update": "FEAT: SystemManager 메소드 추가 및 기능 확장",
+    "webgl_build": "BUILD: WebGL 빌드 설정 및 출력 파일 생성",
+    "auto_general": "CHORE: 자동화 도구를 통한 프로젝트 업데이트",
+    "batch_process": "CHORE: Unity 배치 모드 자동 처리 완료",
+    "full_automation": "FEAT: 완전 자동화 처리 (패키지 + 설정 + 빌드)"
+}
+
 # Unity CLI 설정
 UNITY_EDITOR_PATH = r"D:\Unity\6000.0.30f1\Editor\Unity.exe"  # Unity 설치 경로 (실제 설치 경로로 수정 필요)
 UNITY_TIMEOUT = 300  # Unity 실행 타임아웃 (초)
@@ -343,10 +354,18 @@ def reset_git_index(project_path):
             print(f"강제 리셋도 실패: {stderr}")
             return False
 
-def commit_and_push_changes(project_path, commit_message="Auto commit: Unity project updates"):
+def commit_and_push_changes(project_path, commit_message_type="auto_general", custom_message=None):
     """변경사항을 커밋하고 푸시합니다."""
     project_name = get_project_name_from_path(project_path)
     print(f"\n=== {project_name} Git 작업 시작 ===")
+    
+    # 커밋 메시지 결정
+    if custom_message:
+        commit_message = custom_message
+    else:
+        commit_message = COMMIT_MESSAGES.get(commit_message_type, COMMIT_MESSAGES["auto_general"])
+    
+    print(f"📝 커밋 메시지: {commit_message}")
     
     # Git 리포지토리 확인 및 초기화
     if not is_git_repository(project_path):
@@ -1104,8 +1123,8 @@ public class AutoWebGLBuildScript
         string safeProjectName = projectName.Replace(" ", "_");
         safeProjectName = System.Text.RegularExpressions.Regex.Replace(safeProjectName, @"[^\\w\\-_]", "");
         
-        // 중앙 집중식 빌드 경로 설정: E:\WebGL_Builds\프로젝트명\
-        string buildPath = @"{output_path_formatted}";
+        // 중앙 집중식 빌드 경로 설정: E:\WebGL_Builds\프로젝트명
+        string buildPath = @"$output_path_formatted";
         
         // 출력 디렉토리 생성
         if (!Directory.Exists(buildPath))
@@ -1402,8 +1421,12 @@ public class AutoWebGLBuildScript
 """
     
     try:
+        from string import Template
+        template = Template(script_content)
+        formatted_content = template.safe_substitute(output_path_formatted=output_path_formatted)
+        
         with open(script_path, 'w', encoding='utf-8') as f:
-            f.write(script_content)
+            f.write(formatted_content)
         print(f"WebGL 전용 빌드 스크립트 생성 완료: {script_path}")
         return True
     except Exception as e:
@@ -1726,12 +1749,32 @@ def main():
     
     # Unity 6 호환성 수정만 실행하는 경우
     if fix_unity6:
-        process_unity6_compatibility(project_dirs)
+        print("Unity 6 호환성 수정 시작...")
+        changes_made = process_unity6_compatibility(project_dirs)
+        
+        # 변경사항이 있으면 Git 커밋
+        if changes_made:
+            print("\n변경사항이 있어 Git 커밋을 진행합니다...")
+            for project_dir in project_dirs:
+                if os.path.exists(project_dir):
+                    commit_and_push_changes(project_dir, "unity6_compatibility")
+        else:
+            print("변경사항이 없어 Git 커밋을 생략합니다.")
         return
     
     # SystemManager 메소드 추가만 실행하는 경우
     if add_system_methods:
-        add_methods_to_system_managers(project_dirs)
+        print("SystemManager 메소드 추가 시작...")
+        methods_added = add_methods_to_system_managers(project_dirs)
+        
+        # 변경사항이 있으면 Git 커밋
+        if methods_added:
+            print("\n메소드가 추가되어 Git 커밋을 진행합니다...")
+            for project_dir in project_dirs:
+                if os.path.exists(project_dir):
+                    commit_and_push_changes(project_dir, "system_manager_update")
+        else:
+            print("변경사항이 없어 Git 커밋을 생략합니다.")
         return
 
     # 패키지 추가 (git-only가 아닌 경우에만 실행)
@@ -1746,12 +1789,19 @@ def main():
     if not skip_git:
         print("\n2. Git 커밋 및 푸시 작업 시작...")
         
-        # 커밋 메시지 생성
-        commit_message = "Auto commit: Unity project updates and package additions"
+        # 커밋 메시지 타입 결정
+        if full_auto:
+            commit_message_type = "full_automation"
+        elif unity_batch:
+            commit_message_type = "batch_process"
+        else:
+            commit_message_type = "package_update"
+        
+        print(f"📝 커밋 메시지 타입: {commit_message_type}")
         
         for project_dir in project_dirs:
             if os.path.exists(project_dir):
-                commit_and_push_changes(project_dir, commit_message)
+                commit_and_push_changes(project_dir, commit_message_type)
             else:
                 print(f"프로젝트 폴더 없음: {project_dir}")
 
