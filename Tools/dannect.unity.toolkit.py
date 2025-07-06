@@ -5,11 +5,13 @@ import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+
 # =========================
 # #region 프로젝트 폴더 및 패키지 정보 (최상단에 위치)
 # =========================
 project_dirs = [
-    r"E:\5.1.3.3_Experiment",
+    r"E:\6.1.4.5_ConvexLensLight",
+    r"E:\6.1.4.6_ConvexLensObservation",
     # 40개 프로젝트 경로를 여기에 추가하세요
     # 예시:
     # r"E:\Project1",
@@ -51,25 +53,24 @@ def get_unity_projects_from_directory(base_dir):
 # project_dirs.extend(get_unity_projects_from_directory(r"E:\UnityProjects"))
 
 git_packages = {
-    "com.boxqkrtm.ide.cursor": "https://github.com/boxqkrtm/com.unity.ide.cursor.git",
-    "com.dannect.toolkit": "https://github.com/Dannect/SimGround_Package.git"
+    "com.dannect.toolkit": "https://github.com/mmporong/SimGround_Package.git"
     # 필요시 추가
 }
 
 # Git 설정
-GIT_BASE_URL = "https://github.com/Dannect/"
+GIT_BASE_URL = "https://github.com/mmporong/"
 DEFAULT_BRANCH = "main"
 DEV_BRANCH = "dev"
 
 # Unity CLI 설정
-UNITY_EDITOR_PATH = r"D:\Unity\6000.0.30f1\Editor\Unity.exe"  # Unity 설치 경로
+UNITY_EDITOR_PATH = r"D:\Unity\6000.0.30f1\Editor\Unity.exe"  # Unity 설치 경로 (실제 설치 경로로 수정 필요)
 UNITY_TIMEOUT = 300  # Unity 실행 타임아웃 (초)
 UNITY_LOG_LEVEL = "info"  # Unity 로그 레벨 (debug, info, warning, error)
 
 # Unity WebGL 빌드 설정
 BUILD_TARGET = "WebGL"  # WebGL 전용
 DEFAULT_BUILD_TARGET = "webgl"
-BUILD_OUTPUT_DIR = "Builds"  # 프로젝트 내 빌드 출력 폴더
+BUILD_OUTPUT_DIR = r"E:\WebGL_Builds"  # 중앙 집중식 빌드 출력 폴더
 BUILD_TIMEOUT = 1800  # WebGL 빌드 타임아웃 (30분)
 # endregion
 
@@ -1063,8 +1064,12 @@ def create_unity_webgl_build_script(project_path, output_path=None, auto_configu
     
     script_path = os.path.join(editor_dir, "AutoWebGLBuildScript.cs")
     
+    # 프로젝트명 추출
+    project_name = get_project_name_from_path(project_path)
+    
     if output_path is None:
-        output_path = os.path.join(project_path, BUILD_OUTPUT_DIR, "WebGL")
+        # 중앙 집중식 빌드 경로: E:\WebGL_Builds\프로젝트명\
+        output_path = os.path.join(BUILD_OUTPUT_DIR, project_name)
     
     output_path_formatted = output_path.replace(os.sep, '/')
     
@@ -1087,24 +1092,30 @@ public class AutoWebGLBuildScript
         // 설정된 Player Settings 정보 출력
         LogCurrentPlayerSettings();
         
-        // 빌드 출력 경로 설정 (Product Name 기반)
-        string buildPath = @"{output_path_formatted}";
-        
-        // Product Name이 설정되어 있다면 경로에 반영
-        if (!string.IsNullOrEmpty(PlayerSettings.productName))
+        // 프로젝트명 추출 (Unity에서 스크립트가 실행되는 프로젝트의 이름)
+        string projectName = Application.productName;
+        if (string.IsNullOrEmpty(projectName))
         {{
-            string safeName = PlayerSettings.productName.Replace(" ", "_");
-            // 특수문자 제거
-            safeName = System.Text.RegularExpressions.Regex.Replace(safeName, @"[^\\w\\-_]", "");
-            buildPath = Path.Combine(Path.GetDirectoryName(buildPath), safeName);
+            // ProductName이 없으면 프로젝트 폴더명 사용
+            projectName = new DirectoryInfo(Application.dataPath).Parent.Name;
         }}
+        
+        // 특수문자 제거 및 안전한 파일명 생성
+        string safeProjectName = projectName.Replace(" ", "_");
+        safeProjectName = System.Text.RegularExpressions.Regex.Replace(safeProjectName, @"[^\\w\\-_]", "");
+        
+        // 중앙 집중식 빌드 경로 설정: E:\WebGL_Builds\프로젝트명\
+        string buildPath = @"{output_path_formatted}";
         
         // 출력 디렉토리 생성
         if (!Directory.Exists(buildPath))
         {{
             Directory.CreateDirectory(buildPath);
-            Debug.Log($"빌드 출력 디렉토리 생성: {{buildPath}}");
+            Debug.Log($"중앙 집중식 빌드 출력 디렉토리 생성: {{buildPath}}");
         }}
+        
+        Debug.Log($"📁 프로젝트명: {{projectName}} -> 안전한 파일명: {{safeProjectName}}");
+        Debug.Log($"🌐 중앙 집중식 빌드 경로: {{buildPath}}");
         
         // 빌드할 씬들 가져오기 (Build Settings에서 활성화된 씬만)
         string[] scenes = GetBuildScenes();
@@ -1126,8 +1137,9 @@ public class AutoWebGLBuildScript
         // WebGL 특수 설정 적용
         ApplyWebGLSettings();
         
-        Debug.Log($"🌐 WebGL 빌드 시작");
-        Debug.Log($"📁 빌드 경로: {{buildPlayerOptions.locationPathName}}");
+        Debug.Log($"🌐 WebGL 중앙 집중식 빌드 시작");
+        Debug.Log($"📁 중앙 빌드 경로: {{buildPlayerOptions.locationPathName}}");
+        Debug.Log($"📂 프로젝트명: {{safeProjectName}}");
         Debug.Log($"🎮 제품명: {{PlayerSettings.productName}}");
         Debug.Log($"🏢 회사명: {{PlayerSettings.companyName}}");
         Debug.Log($"📋 버전: {{PlayerSettings.bundleVersion}}");
@@ -1138,11 +1150,13 @@ public class AutoWebGLBuildScript
         // 빌드 결과 확인
         if (report.summary.result == UnityEditor.Build.Reporting.BuildResult.Succeeded)
         {{
-            Debug.Log($"✅ WebGL 빌드 성공!");
+            Debug.Log($"✅ WebGL 중앙 집중식 빌드 성공!");
             Debug.Log($"📦 빌드 크기: {{FormatBytes(report.summary.totalSize)}}");
             Debug.Log($"⏱️ 빌드 시간: {{report.summary.totalTime}}");
-            Debug.Log($"📁 빌드 경로: {{buildPath}}");
-            Debug.Log($"🌐 WebGL 빌드 완료!");
+            Debug.Log($"📁 중앙 빌드 경로: {{buildPath}}");
+            Debug.Log($"📂 프로젝트명: {{safeProjectName}}");
+            Debug.Log($"📄 주요 파일: {{safeProjectName}}.data, {{safeProjectName}}.wasm, index.html");
+            Debug.Log($"🌐 중앙 집중식 WebGL 빌드 완료!");
         }}
         else
         {{
@@ -1195,15 +1209,15 @@ public class AutoWebGLBuildScript
         PlayerSettings.WebGL.template = "APPLICATION:Minimal";
         Debug.Log("✅ WebGL 템플릿 설정: Minimal");
         
-        // Publishing Settings (이미지 기반)
+        // Publishing Settings (이미지 기반) - 프로젝트명 기반 파일명 사용
         PlayerSettings.WebGL.compressionFormat = WebGLCompressionFormat.Disabled;
-        PlayerSettings.WebGL.nameFilesAsHashes = true;
+        PlayerSettings.WebGL.nameFilesAsHashes = false;  // 프로젝트명.data 등으로 파일명 설정
         PlayerSettings.WebGL.dataCaching = true;
         // Unity 6에서 debugSymbols -> debugSymbolMode로 변경
         PlayerSettings.WebGL.debugSymbolMode = WebGLDebugSymbolMode.Off;
         PlayerSettings.WebGL.showDiagnostics = false;
         PlayerSettings.WebGL.decompressionFallback = false;
-        Debug.Log("✅ Publishing Settings: 압축 비활성화, 파일명 해시화, 데이터 캐싱 활성화");
+        Debug.Log("✅ Publishing Settings: 압축 비활성화, 프로젝트명 기반 파일명, 데이터 캐싱 활성화");
         
         // WebAssembly Language Features (이미지 기반)
         PlayerSettings.WebGL.exceptionSupport = WebGLExceptionSupport.ExplicitlyThrownExceptionsOnly;
@@ -1258,6 +1272,7 @@ public class AutoWebGLBuildScript
         Debug.Log($"📦 WebGL 압축 포맷: {{PlayerSettings.WebGL.compressionFormat}}");
         Debug.Log($"⚠️ WebGL 예외 지원: {{PlayerSettings.WebGL.exceptionSupport}}");
         Debug.Log($"💽 WebGL 데이터 캐싱: {{PlayerSettings.WebGL.dataCaching}}");
+        Debug.Log($"📂 WebGL 파일명 방식: {{(PlayerSettings.WebGL.nameFilesAsHashes ? "해시" : "프로젝트명")}} 기반");
         Debug.Log($"🔧 WebGL 링커 타겟: {{PlayerSettings.WebGL.linkerTarget}}");
         Debug.Log($"🎯 WebGL 최적화: Unity 6에서 자동 관리");
         Debug.Log("=====================================");
@@ -1545,29 +1560,61 @@ def build_multiple_webgl_projects_parallel(project_dirs, max_workers=2):
     return results
 
 def clean_build_outputs(project_dirs):
-    """모든 프로젝트의 빌드 출력물을 정리합니다."""
-    print("\n=== 빌드 출력물 정리 시작 ===")
+    """중앙 집중식 빌드 출력물을 정리합니다."""
+    print("\n=== 중앙 집중식 빌드 출력물 정리 시작 ===")
+    print(f"📁 중앙 빌드 폴더: {BUILD_OUTPUT_DIR}")
+    
+    if not os.path.exists(BUILD_OUTPUT_DIR):
+        print("⚪ 중앙 빌드 폴더가 존재하지 않습니다.")
+        return
     
     cleaned_count = 0
+    total_size = 0
+    
+    # 각 프로젝트별 빌드 폴더 정리
     for project_dir in project_dirs:
         if not os.path.exists(project_dir):
             continue
             
         project_name = get_project_name_from_path(project_dir)
-        build_dir = os.path.join(project_dir, BUILD_OUTPUT_DIR)
+        project_build_dir = os.path.join(BUILD_OUTPUT_DIR, project_name)
         
-        if os.path.exists(build_dir):
+        if os.path.exists(project_build_dir):
             try:
                 import shutil
-                shutil.rmtree(build_dir)
-                print(f"✅ {project_name} 빌드 출력물 정리 완료")
+                # 폴더 크기 계산
+                folder_size = 0
+                for dirpath, dirnames, filenames in os.walk(project_build_dir):
+                    for filename in filenames:
+                        filepath = os.path.join(dirpath, filename)
+                        try:
+                            folder_size += os.path.getsize(filepath)
+                        except:
+                            pass
+                
+                total_size += folder_size
+                shutil.rmtree(project_build_dir)
+                
+                # 크기를 읽기 쉬운 형태로 변환
+                size_str = format_bytes(folder_size)
+                print(f"✅ {project_name} 중앙 빌드 출력물 정리 완료 ({size_str})")
                 cleaned_count += 1
             except Exception as e:
-                print(f"❌ {project_name} 빌드 출력물 정리 실패: {e}")
+                print(f"❌ {project_name} 중앙 빌드 출력물 정리 실패: {e}")
         else:
-            print(f"⚪ {project_name} 빌드 출력물 없음")
+            print(f"⚪ {project_name} 중앙 빌드 출력물 없음")
     
-    print(f"총 {cleaned_count}개 프로젝트 빌드 출력물 정리 완료")
+    total_size_str = format_bytes(total_size)
+    print(f"\n📊 정리 완료: {cleaned_count}개 프로젝트, 총 {total_size_str} 절약")
+    print(f"📁 중앙 빌드 폴더: {BUILD_OUTPUT_DIR}")
+
+def format_bytes(bytes_size):
+    """바이트 크기를 읽기 쉬운 형태로 변환합니다."""
+    for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
+        if bytes_size < 1024.0:
+            return f"{bytes_size:.1f} {unit}"
+        bytes_size /= 1024.0
+    return f"{bytes_size:.1f} PB"
 # endregion
 
 # =========================
@@ -1588,7 +1635,7 @@ def print_usage():
     print("  --parallel       Unity 배치 모드를 병렬로 실행 (빠른 처리, 메모리 사용량 증가)")
     print("  --build-webgl    Unity WebGL 빌드 자동화 (Player Settings 완전 반영)")
     print("  --build-parallel WebGL 빌드를 병렬로 실행 (2개씩 동시 빌드)")
-    print("  --clean-builds   모든 빌드 출력물 정리")
+    print("  --clean-builds   중앙 집중식 빌드 출력물 정리 (프로젝트별 폴더 삭제)")
     print("  --fix-unity6     Unity 6 deprecated API 자동 수정 (FindObjectOfType 등)")
     print("  --check-unity6   Unity 6 호환성 검사 보고서 생성")
     print("  --add-system-methods SystemManager에 공통 메소드 추가 (AllowKeyboardInput 등)")
@@ -1612,16 +1659,18 @@ def print_usage():
     print("- --parallel 옵션으로 병렬 처리 가능 (3개씩 동시 실행)")
     print("- Unity GUI 없이 백그라운드에서 실행")
     print("")
-    print("Unity WebGL 빌드 자동화 (--build-webgl):")
-    print("- Unity CLI를 사용하여 WebGL 프로젝트를 자동 빌드")
+    print("Unity WebGL 중앙 집중식 빌드 자동화 (--build-webgl):")
+    print("- Unity CLI를 사용하여 WebGL 프로젝트를 중앙 집중식으로 자동 빌드")
     print("- Player Settings 완전 반영 (제품명, 회사명, 버전, WebGL 설정 등)")
     print("- Build Settings의 활성화된 씬만 빌드")
     print("- Development Build, Profiler 등 빌드 옵션 자동 적용")
     print("- WebGL 전용 최적화 설정 적용 (메모리, 압축, 템플릿 등)")
+    print("- 프로젝트명 기반 파일명 생성 (프로젝트명.data, 프로젝트명.wasm 등)")
     print("- 과학실험 시뮬레이션에 최적화된 WebGL 빌드")
-    print("- 빌드 출력: 각 프로젝트의 Builds/WebGL 폴더")
+    print(f"- 중앙 빌드 출력: {BUILD_OUTPUT_DIR}\\프로젝트명\\ 폴더")
     print("- --build-parallel로 병렬 빌드 가능 (2개씩 동시 빌드)")
     print("- 빌드 시간: 프로젝트당 5-15분 (WebGL 최적화 포함)")
+    print("- 하나의 폴더에서 모든 프로젝트 빌드 결과 통합 관리")
     print("")
     print("SystemManager 메소드 추가 (--add-system-methods):")
     print("- 모든 프로젝트의 SystemManager.cs 파일을 자동 탐색")
