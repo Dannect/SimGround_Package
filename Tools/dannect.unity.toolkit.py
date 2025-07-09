@@ -8,22 +8,55 @@ from string import Template
 
 
 # =========================
-# #region 프로젝트 폴더 및 패키지 정보 (최상단에 위치)
+# Configuration and Constants
 # =========================
-project_dirs = [
-    r"C:\Users\wkzkx\Desktop\Lim\GitHub\6.1.4.5_ConvexLensLight",
-    r"C:\Users\wkzkx\Desktop\Lim\GitHub\6.1.4.6_ConvexLensObservation",
-    # 40개 프로젝트 경로를 여기에 추가하세요
-    # 예시:
-    # r"E:\Project1",
-    # r"E:\Project2",
-    # r"E:\Project3",
-    # ... 계속 추가
+class Config:
+    """전체 설정 및 상수 클래스"""
+    # 프로젝트 경로
+    PROJECT_DIRS = [
+        r"C:\Users\wkzkx\Desktop\Lim\GitHub\6.1.4.5_ConvexLensLight",
+        r"C:\Users\wkzkx\Desktop\Lim\GitHub\6.1.4.6_ConvexLensObservation",
+        # 추가 프로젝트 경로들...
+    ]
     
-    # 자동 스캔 기능을 원한다면 아래 함수를 사용하세요
-    # get_unity_projects_from_directory(r"E:\UnityProjects")
+    # Git 설정
+    GIT_BASE_URL = "https://github.com/Dannect/"
+    DEFAULT_BRANCH = "main"
+    DEV_BRANCH = "dev"
+    
+    # Unity 설정
+    UNITY_EDITOR_PATH = r"C:\Program Files\Unity\Hub\Editor\6000.0.30f1\Editor\Unity.exe"
+    UNITY_TIMEOUT = 300
+    BUILD_TIMEOUT = 1800
+    BUILD_OUTPUT_DIR = r"C:\Users\wkzkx\Desktop\Lim\GitHub\Build"
+    
+    # 패키지 설정
+    GIT_PACKAGES = {
+        "com.dannect.toolkit": "https://github.com/Dannect/SimGround_Package.git"
+    }
+    
+    # 커밋 메시지 템플릿
+    COMMIT_MESSAGES = {
+        "package_update": "FEAT: Unity 패키지 업데이트 및 자동 설정 적용",
 
-]
+        "system_manager_update": "FEAT: SystemManager 메소드 추가 및 기능 확장",
+        "webgl_build": "BUILD: WebGL 빌드 설정 및 출력 파일 생성",
+        "auto_general": "CHORE: 자동화 도구를 통한 프로젝트 업데이트",
+        "batch_process": "CHORE: Unity 배치 모드 자동 처리 완료",
+        "full_automation": "FEAT: 완전 자동화 처리 (패키지 + 설정 + 빌드)"
+    }
+
+# 호환성을 위한 전역 변수들
+project_dirs = Config.PROJECT_DIRS
+git_packages = Config.GIT_PACKAGES
+GIT_BASE_URL = Config.GIT_BASE_URL
+DEFAULT_BRANCH = Config.DEFAULT_BRANCH
+DEV_BRANCH = Config.DEV_BRANCH
+COMMIT_MESSAGES = Config.COMMIT_MESSAGES
+UNITY_EDITOR_PATH = Config.UNITY_EDITOR_PATH
+UNITY_TIMEOUT = Config.UNITY_TIMEOUT
+BUILD_TIMEOUT = Config.BUILD_TIMEOUT
+BUILD_OUTPUT_DIR = Config.BUILD_OUTPUT_DIR
 
 def get_unity_projects_from_directory(base_dir):
     """지정된 디렉토리에서 Unity 프로젝트들을 자동으로 찾습니다."""
@@ -37,7 +70,6 @@ def get_unity_projects_from_directory(base_dir):
         for item in os.listdir(base_dir):
             item_path = os.path.join(base_dir, item)
             if os.path.isdir(item_path):
-                # Unity 프로젝트인지 확인 (ProjectSettings 폴더 존재 여부)
                 project_settings = os.path.join(item_path, "ProjectSettings")
                 assets_folder = os.path.join(item_path, "Assets")
                 
@@ -50,212 +82,309 @@ def get_unity_projects_from_directory(base_dir):
     
     return unity_projects
 
-# 자동 스캔을 사용하려면 아래 주석을 해제하고 경로를 수정하세요
-# project_dirs.extend(get_unity_projects_from_directory(r"E:\UnityProjects"))
-
-git_packages = {
-    "com.dannect.toolkit": "https://github.com/Dannect/SimGround_Package.git"
-    # 필요시 추가
-}
-
-# Git 설정
-GIT_BASE_URL = "https://github.com/Dannect/"
-DEFAULT_BRANCH = "main"
-DEV_BRANCH = "dev"
-
-# 커밋 메시지 템플릿 (통일된 커밋 메시지) - 대문자 타입
-COMMIT_MESSAGES = {
-    "package_update": "FEAT: Unity 패키지 업데이트 및 자동 설정 적용",
-    "unity6_compatibility": "FIX: Unity 6 호환성 API 수정 및 최적화",
-    "system_manager_update": "FEAT: SystemManager 메소드 추가 및 기능 확장",
-    "webgl_build": "BUILD: WebGL 빌드 설정 및 출력 파일 생성",
-    "auto_general": "CHORE: 자동화 도구를 통한 프로젝트 업데이트",
-    "batch_process": "CHORE: Unity 배치 모드 자동 처리 완료",
-    "full_automation": "FEAT: 완전 자동화 처리 (패키지 + 설정 + 빌드)"
-}
-
-# Unity CLI 설정
-UNITY_EDITOR_PATH = r"C:\Program Files\Unity\Hub\Editor\6000.0.30f1\Editor\Unity.exe"  # Unity 설치 경로
-UNITY_TIMEOUT = 300  # Unity 실행 타임아웃 (초)
-UNITY_LOG_LEVEL = "info"  # Unity 로그 레벨 (debug, info, warning, error)
-
-# Unity WebGL 빌드 설정
-BUILD_TARGET = "WebGL"  # WebGL 전용
-DEFAULT_BUILD_TARGET = "webgl"
-BUILD_OUTPUT_DIR = r"C:\Users\wkzkx\Desktop\Lim\GitHub\Build"  # 중앙 집중식 빌드 출력 폴더
-BUILD_TIMEOUT = 1800  # WebGL 빌드 타임아웃 (30분)
-# endregion
-
 # =========================
 # #region Git 유틸리티 함수들
 # =========================
-def run_git_command(command, cwd):
-    """Git 명령어를 실행하고 결과를 반환합니다."""
-    try:
-        result = subprocess.run(
-            command, 
-            cwd=cwd, 
-            capture_output=True, 
-            text=True, 
-            shell=True,
-            encoding='utf-8'
-        )
-        return result.returncode == 0, result.stdout.strip(), result.stderr.strip()
-    except Exception as e:
-        return False, "", str(e)
-
-def get_project_name_from_path(project_path):
-    """프로젝트 경로에서 프로젝트명을 추출합니다."""
-    return os.path.basename(project_path.rstrip(os.sep))
-
-def get_repository_url(project_path):
-    """프로젝트 경로를 기반으로 Git 리포지토리 URL을 생성합니다."""
-    project_name = get_project_name_from_path(project_path)
-    return f"{GIT_BASE_URL}{project_name}"
-
-def is_git_repository(project_path):
-    """해당 경로가 Git 리포지토리인지 확인합니다."""
-    git_dir = os.path.join(project_path, ".git")
-    return os.path.exists(git_dir)
-
-def initialize_git_repository(project_path):
-    """Git 리포지토리를 초기화하고 원격 저장소를 설정합니다."""
-    print(f"Git 리포지토리 초기화 중: {project_path}")
+class GitUtils:
+    """Git 관련 유틸리티 클래스"""
     
-    # Git 초기화
-    success, stdout, stderr = run_git_command("git init", project_path)
-    if not success:
-        print(f"Git 초기화 실패: {stderr}")
-        return False
+    @staticmethod
+    def run_command(command, cwd):
+        """Git 명령어를 실행하고 결과를 반환합니다."""
+        try:
+            result = subprocess.run(
+                command, 
+                cwd=cwd, 
+                capture_output=True, 
+                text=True, 
+                shell=True,
+                encoding='utf-8'
+            )
+            return result.returncode == 0, result.stdout.strip(), result.stderr.strip()
+        except Exception as e:
+            return False, "", str(e)
     
-    # 원격 저장소 추가
-    repo_url = get_repository_url(project_path)
-    success, stdout, stderr = run_git_command(f"git remote add origin {repo_url}", project_path)
-    if not success and "already exists" not in stderr:
-        print(f"원격 저장소 추가 실패: {stderr}")
-        return False
+    @staticmethod
+    def get_project_name(project_path):
+        """프로젝트 경로에서 프로젝트명을 추출합니다."""
+        return os.path.basename(project_path.rstrip(os.sep))
     
-    print(f"Git 리포지토리 초기화 완료: {repo_url}")
-    return True
+    @staticmethod
+    def get_repository_url(project_path):
+        """프로젝트 경로를 기반으로 Git 리포지토리 URL을 생성합니다."""
+        project_name = GitUtils.get_project_name(project_path)
+        return f"{GIT_BASE_URL}{project_name}"
+    
+    @staticmethod
+    def is_repository(project_path):
+        """해당 경로가 Git 리포지토리인지 확인합니다."""
+        return os.path.exists(os.path.join(project_path, ".git"))
+    
+    @staticmethod
+    def initialize_repository(project_path):
+        """Git 리포지토리를 초기화하고 원격 저장소를 설정합니다."""
+        print(f"Git 리포지토리 초기화 중: {project_path}")
+        
+        # Git 초기화
+        success, stdout, stderr = GitUtils.run_command("git init", project_path)
+        if not success:
+            print(f"Git 초기화 실패: {stderr}")
+            return False
+        
+        # 원격 저장소 추가
+        repo_url = GitUtils.get_repository_url(project_path)
+        success, stdout, stderr = GitUtils.run_command(f"git remote add origin {repo_url}", project_path)
+        if not success and "already exists" not in stderr:
+            print(f"원격 저장소 추가 실패: {stderr}")
+            return False
+        
+        print(f"Git 리포지토리 초기화 완료: {repo_url}")
+        return True
 
-def get_current_branch(project_path):
-    """현재 브랜치명을 가져옵니다."""
-    success, stdout, stderr = run_git_command("git branch --show-current", project_path)
-    if success:
-        return stdout.strip()
-    return None
+    @staticmethod
+    def get_current_branch(project_path):
+        """현재 브랜치명을 가져옵니다."""
+        success, stdout, stderr = GitUtils.run_command("git branch --show-current", project_path)
+        return stdout.strip() if success else None
 
-def get_all_branches(project_path):
-    """모든 브랜치 목록을 가져옵니다."""
-    success, stdout, stderr = run_git_command("git branch -a", project_path)
-    if success:
+    @staticmethod
+    def get_all_branches(project_path):
+        """모든 브랜치 목록을 가져옵니다."""
+        success, stdout, stderr = GitUtils.run_command("git branch -a", project_path)
+        if not success:
+            return []
+        
         branches = []
         for line in stdout.split('\n'):
             line = line.strip()
             if line and not line.startswith('*'):
-                # 원격 브랜치 정보 제거
                 branch = line.replace('remotes/origin/', '').strip()
                 if branch and branch not in branches:
                     branches.append(branch)
         return branches
-    return []
 
-def get_branch_hierarchy_info(project_path, branch_name):
-    """브랜치의 계층 정보를 가져옵니다 (커밋 수와 최근 커밋 시간)."""
-    # 브랜치의 커밋 수 가져오기
-    success, commit_count, stderr = run_git_command(f"git rev-list --count {branch_name}", project_path)
-    if not success:
-        return 0, 0
-    
-    # 브랜치의 최근 커밋 시간 가져오기 (Unix timestamp)
-    success, last_commit_time, stderr = run_git_command(f"git log -1 --format=%ct {branch_name}", project_path)
-    if not success:
-        return int(commit_count) if commit_count.isdigit() else 0, 0
-    
-    return (
-        int(commit_count) if commit_count.isdigit() else 0,
-        int(last_commit_time) if last_commit_time.isdigit() else 0
-    )
-
-def find_deepest_branch(project_path, branches):
-    """브랜치 계층구조에서 가장 깊은(아래) 브랜치를 찾습니다."""
-    if not branches:
-        return None
-    
-    # main 브랜치 제외
-    filtered_branches = [b for b in branches if b != DEFAULT_BRANCH]
-    if not filtered_branches:
-        return None
-    
-    deepest_branch = None
-    max_commits = 0
-    latest_time = 0
-    
-    print("브랜치 계층 분석 중...")
-    
-    for branch in filtered_branches:
-        commit_count, last_commit_time = get_branch_hierarchy_info(project_path, branch)
-        print(f"  {branch}: {commit_count}개 커밋, 최근 커밋: {last_commit_time}")
+    @staticmethod
+    def get_branch_hierarchy_info(project_path, branch_name):
+        """브랜치의 계층 정보를 가져옵니다 (커밋 수와 최근 커밋 시간)."""
+        # 브랜치의 커밋 수 가져오기
+        success, commit_count, stderr = GitUtils.run_command(f"git rev-list --count {branch_name}", project_path)
+        if not success:
+            return 0, 0
         
-        # 커밋 수가 더 많거나, 커밋 수가 같으면 더 최근 브랜치 선택
-        if (commit_count > max_commits or 
-            (commit_count == max_commits and last_commit_time > latest_time)):
-            max_commits = commit_count
-            latest_time = last_commit_time
-            deepest_branch = branch
-    
-    return deepest_branch
+        # 브랜치의 최근 커밋 시간 가져오기 (Unix timestamp)
+        success, last_commit_time, stderr = GitUtils.run_command(f"git log -1 --format=%ct {branch_name}", project_path)
+        if not success:
+            return int(commit_count) if commit_count.isdigit() else 0, 0
+        
+        return (
+            int(commit_count) if commit_count.isdigit() else 0,
+            int(last_commit_time) if last_commit_time.isdigit() else 0
+        )
 
-def branch_exists(project_path, branch_name):
-    """특정 브랜치가 존재하는지 확인합니다."""
-    success, stdout, stderr = run_git_command(f"git show-ref --verify --quiet refs/heads/{branch_name}", project_path)
-    return success
+    @staticmethod
+    def find_deepest_branch(project_path, branches):
+        """브랜치 계층구조에서 가장 깊은(아래) 브랜치를 찾습니다."""
+        if not branches:
+            return None
+        
+        # main 브랜치 제외
+        filtered_branches = [b for b in branches if b != DEFAULT_BRANCH]
+        if not filtered_branches:
+            return None
+        
+        deepest_branch = None
+        max_commits = 0
+        latest_time = 0
+        
+        print("브랜치 계층 분석 중...")
+        
+        for branch in filtered_branches:
+            commit_count, last_commit_time = GitUtils.get_branch_hierarchy_info(project_path, branch)
+            print(f"  {branch}: {commit_count}개 커밋, 최근 커밋: {last_commit_time}")
+            
+            # 커밋 수가 더 많거나, 커밋 수가 같으면 더 최근 브랜치 선택
+            if (commit_count > max_commits or 
+                (commit_count == max_commits and last_commit_time > latest_time)):
+                max_commits = commit_count
+                latest_time = last_commit_time
+                deepest_branch = branch
+        
+        return deepest_branch
 
-def create_and_checkout_branch(project_path, branch_name):
-    """새 브랜치를 생성하고 체크아웃합니다."""
-    print(f"브랜치 생성 및 체크아웃: {branch_name}")
-    success, stdout, stderr = run_git_command(f"git checkout -b {branch_name}", project_path)
-    if success:
-        print(f"브랜치 '{branch_name}' 생성 완료")
-        return True
-    else:
-        print(f"브랜치 생성 실패: {stderr}")
-        return False
+    @staticmethod
+    def branch_exists(project_path, branch_name):
+        """특정 브랜치가 존재하는지 확인합니다."""
+        success, stdout, stderr = GitUtils.run_command(f"git show-ref --verify --quiet refs/heads/{branch_name}", project_path)
+        return success
 
-def checkout_branch(project_path, branch_name):
-    """기존 브랜치로 체크아웃합니다."""
-    print(f"브랜치 체크아웃: {branch_name}")
-    success, stdout, stderr = run_git_command(f"git checkout {branch_name}", project_path)
-    if success:
-        print(f"브랜치 '{branch_name}'로 체크아웃 완료")
-        return True
-    else:
-        print(f"브랜치 체크아웃 실패: {stderr}")
-        # 다양한 Git 문제 처리
-        if ("index" in stderr.lower() or "resolve" in stderr.lower() or 
-            "untracked working tree files" in stderr.lower() or 
-            "would be overwritten" in stderr.lower()):
-            print("Git 상태 문제 감지, 정리 후 체크아웃 재시도...")
-            if reset_git_index(project_path):
-                success, stdout, stderr = run_git_command(f"git checkout {branch_name}", project_path)
-                if success:
-                    print(f"브랜치 '{branch_name}'로 체크아웃 완료 (재시도)")
-                    return True
-                else:
-                    print(f"브랜치 체크아웃 재시도 실패: {stderr}")
-                    # 강제 체크아웃 시도
-                    print("강제 체크아웃 시도...")
-                    success, stdout, stderr = run_git_command(f"git checkout -f {branch_name}", project_path)
+    @staticmethod
+    def create_and_checkout_branch(project_path, branch_name):
+        """새 브랜치를 생성하고 체크아웃합니다."""
+        print(f"브랜치 생성 및 체크아웃: {branch_name}")
+        success, stdout, stderr = GitUtils.run_command(f"git checkout -b {branch_name}", project_path)
+        if success:
+            print(f"브랜치 '{branch_name}' 생성 완료")
+            return True
+        else:
+            print(f"브랜치 생성 실패: {stderr}")
+            return False
+
+    @staticmethod
+    def checkout_branch(project_path, branch_name):
+        """기존 브랜치로 체크아웃합니다."""
+        print(f"브랜치 체크아웃: {branch_name}")
+        success, stdout, stderr = GitUtils.run_command(f"git checkout {branch_name}", project_path)
+        if success:
+            print(f"브랜치 '{branch_name}'로 체크아웃 완료")
+            return True
+        else:
+            print(f"브랜치 체크아웃 실패: {stderr}")
+            # 다양한 Git 문제 처리
+            if ("index" in stderr.lower() or "resolve" in stderr.lower() or 
+                "untracked working tree files" in stderr.lower() or 
+                "would be overwritten" in stderr.lower()):
+                print("Git 상태 문제 감지, 정리 후 체크아웃 재시도...")
+                if GitUtils.reset_git_index(project_path):
+                    success, stdout, stderr = GitUtils.run_command(f"git checkout {branch_name}", project_path)
                     if success:
-                        print(f"브랜치 '{branch_name}'로 강제 체크아웃 완료")
+                        print(f"브랜치 '{branch_name}'로 체크아웃 완료 (재시도)")
                         return True
                     else:
-                        print(f"강제 체크아웃도 실패: {stderr}")
-                        return False
+                        print(f"브랜치 체크아웃 재시도 실패: {stderr}")
+                        # 강제 체크아웃 시도
+                        print("강제 체크아웃 시도...")
+                        success, stdout, stderr = GitUtils.run_command(f"git checkout -f {branch_name}", project_path)
+                        if success:
+                            print(f"브랜치 '{branch_name}'로 강제 체크아웃 완료")
+                            return True
+                        else:
+                            print(f"강제 체크아웃도 실패: {stderr}")
+                            return False
+                else:
+                    return False
             else:
                 return False
+
+    @staticmethod
+    def check_git_status(project_path):
+        """Git 상태를 자세히 확인합니다."""
+        print("Git 상태 상세 확인 중...")
+        
+        # 기본 상태 확인
+        success, stdout, stderr = GitUtils.run_command("git status", project_path)
+        if success:
+            print("Git 상태:")
+            for line in stdout.split('\n')[:10]:  # 처음 10줄만 출력
+                if line.strip():
+                    print(f"  {line}")
+        
+        # 병합 상태 확인
+        success, stdout, stderr = GitUtils.run_command("git status --porcelain", project_path)
+        if success:
+            conflict_files = [line for line in stdout.split('\n') if line.startswith('UU') or line.startswith('AA')]
+            if conflict_files:
+                print(f"충돌 파일 발견: {len(conflict_files)}개")
+                return "conflict"
+        
+        return "normal"
+
+    @staticmethod
+    def clean_untracked_files(project_path):
+        """Untracked 파일들을 정리합니다."""
+        print("Untracked 파일 정리 중...")
+        
+        # 먼저 어떤 파일들이 있는지 확인
+        success, stdout, stderr = GitUtils.run_command("git clean -n", project_path)
+        if success and stdout.strip():
+            print("정리될 파일들:")
+            for line in stdout.split('\n')[:10]:  # 처음 10개만 표시
+                if line.strip():
+                    print(f"  {line}")
+        
+        # Untracked 파일들 제거 (디렉토리 포함)
+        success, stdout, stderr = GitUtils.run_command("git clean -fd", project_path)
+        if success:
+            print("Untracked 파일 정리 완료")
+            return True
         else:
+            print(f"Untracked 파일 정리 실패: {stderr}")
             return False
+
+    @staticmethod
+    def reset_git_index(project_path):
+        """Git 인덱스 상태를 리셋합니다."""
+        print("Git 인덱스 상태 리셋 중...")
+        
+        # 상세 상태 확인
+        status = GitUtils.check_git_status(project_path)
+        
+        if status == "conflict":
+            print("병합 충돌 감지, 자동 해결 시도...")
+            # 병합 중단
+            GitUtils.run_command("git merge --abort", project_path)
+            # rebase 중단도 시도
+            GitUtils.run_command("git rebase --abort", project_path)
+        
+        # Untracked 파일들 정리
+        GitUtils.clean_untracked_files(project_path)
+        
+        # 인덱스 리셋
+        success, stdout, stderr = GitUtils.run_command("git reset", project_path)
+        if success:
+            print("Git 인덱스 리셋 완료")
+            return True
+        else:
+            print(f"Git 인덱스 리셋 실패: {stderr}")
+            # 강제 리셋 시도
+            print("강제 리셋 시도...")
+            success, stdout, stderr = GitUtils.run_command("git reset --hard HEAD", project_path)
+            if success:
+                print("강제 리셋 완료")
+                # 강제 리셋 후에도 untracked 파일 정리
+                GitUtils.clean_untracked_files(project_path)
+                return True
+            else:
+                print(f"강제 리셋도 실패: {stderr}")
+                return False
+
+
+# 호환성을 위한 래퍼 함수들
+def run_git_command(command, cwd):
+    return GitUtils.run_command(command, cwd)
+
+def get_project_name_from_path(project_path):
+    return GitUtils.get_project_name(project_path)
+
+def get_repository_url(project_path):
+    return GitUtils.get_repository_url(project_path)
+
+def is_git_repository(project_path):
+    return GitUtils.is_repository(project_path)
+
+def initialize_git_repository(project_path):
+    return GitUtils.initialize_repository(project_path)
+
+# 호환성을 위한 래퍼 함수들 (계속)
+def get_current_branch(project_path):
+    return GitUtils.get_current_branch(project_path)
+
+def get_all_branches(project_path):
+    return GitUtils.get_all_branches(project_path)
+
+def get_branch_hierarchy_info(project_path, branch_name):
+    return GitUtils.get_branch_hierarchy_info(project_path, branch_name)
+
+def find_deepest_branch(project_path, branches):
+    return GitUtils.find_deepest_branch(project_path, branches)
+
+def branch_exists(project_path, branch_name):
+    return GitUtils.branch_exists(project_path, branch_name)
+
+def create_and_checkout_branch(project_path, branch_name):
+    return GitUtils.create_and_checkout_branch(project_path, branch_name)
+
+def checkout_branch(project_path, branch_name):
+    return GitUtils.checkout_branch(project_path, branch_name)
 
 def get_target_branch(project_path):
     """커밋할 대상 브랜치를 결정합니다."""
@@ -276,89 +405,21 @@ def get_target_branch(project_path):
     print(f"적절한 브랜치가 없어 dev 브랜치를 새로 생성합니다")
     return DEV_BRANCH
 
+# 중복 함수 제거됨 - GitUtils 클래스 메소드 사용
+
 def check_git_status(project_path):
-    """Git 상태를 자세히 확인합니다."""
-    print("Git 상태 상세 확인 중...")
-    
-    # 기본 상태 확인
-    success, stdout, stderr = run_git_command("git status", project_path)
-    if success:
-        print("Git 상태:")
-        for line in stdout.split('\n')[:10]:  # 처음 10줄만 출력
-            if line.strip():
-                print(f"  {line}")
-    
-    # 병합 상태 확인
-    success, stdout, stderr = run_git_command("git status --porcelain", project_path)
-    if success:
-        conflict_files = [line for line in stdout.split('\n') if line.startswith('UU') or line.startswith('AA')]
-        if conflict_files:
-            print(f"충돌 파일 발견: {len(conflict_files)}개")
-            return "conflict"
-    
-    return "normal"
+    return GitUtils.check_git_status(project_path)
 
 def clean_untracked_files(project_path):
-    """Untracked 파일들을 정리합니다."""
-    print("Untracked 파일 정리 중...")
-    
-    # 먼저 어떤 파일들이 있는지 확인
-    success, stdout, stderr = run_git_command("git clean -n", project_path)
-    if success and stdout.strip():
-        print("정리될 파일들:")
-        for line in stdout.split('\n')[:10]:  # 처음 10개만 표시
-            if line.strip():
-                print(f"  {line}")
-    
-    # Untracked 파일들 제거 (디렉토리 포함)
-    success, stdout, stderr = run_git_command("git clean -fd", project_path)
-    if success:
-        print("Untracked 파일 정리 완료")
-        return True
-    else:
-        print(f"Untracked 파일 정리 실패: {stderr}")
-        return False
+    return GitUtils.clean_untracked_files(project_path)
 
 def reset_git_index(project_path):
-    """Git 인덱스 상태를 리셋합니다."""
-    print("Git 인덱스 상태 리셋 중...")
-    
-    # 상세 상태 확인
-    status = check_git_status(project_path)
-    
-    if status == "conflict":
-        print("병합 충돌 감지, 자동 해결 시도...")
-        # 병합 중단
-        run_git_command("git merge --abort", project_path)
-        # rebase 중단도 시도
-        run_git_command("git rebase --abort", project_path)
-    
-    # Untracked 파일들 정리
-    clean_untracked_files(project_path)
-    
-    # 인덱스 리셋
-    success, stdout, stderr = run_git_command("git reset", project_path)
-    if success:
-        print("Git 인덱스 리셋 완료")
-        return True
-    else:
-        print(f"Git 인덱스 리셋 실패: {stderr}")
-        # 강제 리셋 시도
-        print("강제 리셋 시도...")
-        success, stdout, stderr = run_git_command("git reset --hard HEAD", project_path)
-        if success:
-            print("강제 리셋 완료")
-            # 강제 리셋 후에도 untracked 파일 정리
-            clean_untracked_files(project_path)
-            return True
-        else:
-            print(f"강제 리셋도 실패: {stderr}")
-            return False
+    return GitUtils.reset_git_index(project_path)
 
-def commit_and_push_changes(project_path, commit_message_type="auto_general", custom_message=None):
-    """변경사항을 커밋하고 푸시합니다."""
+def commit_changes(project_path, commit_message_type="auto_general", custom_message=None):
+    """변경사항을 커밋합니다 (푸시 제외)."""
     project_name = get_project_name_from_path(project_path)
-    print(f"\n=== {project_name} Git 작업 시작 ===")
+    print(f"\n=== {project_name} Git 커밋 시작 ===")
     
     # 커밋 메시지 결정
     if custom_message:
@@ -428,16 +489,53 @@ def commit_and_push_changes(project_path, commit_message_type="auto_general", cu
         return False
     
     print(f"커밋 완료: {project_name}")
+    print(f"=== {project_name} Git 커밋 완료 ===\n")
+    return True
+
+def push_changes(project_path):
+    """커밋된 변경사항을 푸시합니다."""
+    project_name = get_project_name_from_path(project_path)
+    print(f"\n=== {project_name} Git 푸시 시작 ===")
+    
+    # Git 리포지토리 확인
+    if not is_git_repository(project_path):
+        print(f"Git 리포지토리가 아닙니다: {project_path}")
+        return False
+    
+    # 현재 브랜치 확인
+    current_branch = get_current_branch(project_path)
+    if not current_branch:
+        print(f"현재 브랜치를 확인할 수 없습니다: {project_path}")
+        return False
+    
+    print(f"현재 브랜치: {current_branch}")
+    
+    # 푸시할 커밋이 있는지 확인
+    success, stdout, stderr = run_git_command(f"git log origin/{current_branch}..HEAD --oneline", project_path)
+    if not success:
+        print(f"푸시할 커밋 확인 실패: {stderr}")
+        print("원격 브랜치가 없거나 첫 푸시일 수 있습니다.")
+    elif not stdout.strip():
+        print(f"푸시할 커밋 없음: {project_name}")
+        return True
+    else:
+        print(f"푸시할 커밋 발견: {len(stdout.strip().split('\n'))}개")
     
     # 푸시
-    success, stdout, stderr = run_git_command(f"git push -u origin {target_branch}", project_path)
+    success, stdout, stderr = run_git_command(f"git push -u origin {current_branch}", project_path)
     if not success:
         print(f"Git push 실패: {stderr}")
         return False
     
-    print(f"푸시 완료: {project_name} -> {target_branch}")
-    print(f"=== {project_name} Git 작업 완료 ===\n")
+    print(f"푸시 완료: {project_name} -> {current_branch}")
+    print(f"=== {project_name} Git 푸시 완료 ===\n")
     return True
+
+def commit_and_push_changes(project_path, commit_message_type="auto_general", custom_message=None):
+    """변경사항을 커밋하고 푸시합니다 (기존 호환성 유지)."""
+    if not commit_changes(project_path, commit_message_type, custom_message):
+        return False
+    return push_changes(project_path)
 # endregion
 
 # =========================
@@ -668,191 +766,7 @@ def process_multiple_projects_parallel(project_dirs, max_workers=3):
     return results
 # endregion
 
-# =========================
-# #region Unity 6 API 호환성 함수
-# =========================
 
-def fix_unity6_deprecated_apis(filepath):
-    """Unity 6에서 deprecated된 API들을 최신 API로 교체합니다."""
-    try:
-        with open(filepath, 'r', encoding='utf-8') as f:
-            content = f.read()
-        
-        original_content = content
-        changes_made = []
-        
-        # Unity 6 API 교체 규칙들
-        api_replacements = [
-            # FindObjectOfType -> FindFirstObjectByType
-            (r'FindObjectOfType<([^>]+)>\(\)', r'FindFirstObjectByType<\1>()'),
-            (r'GameObject\.FindObjectOfType<([^>]+)>\(\)', r'FindFirstObjectByType<\1>()'),
-            (r'Object\.FindObjectOfType<([^>]+)>\(\)', r'FindFirstObjectByType<\1>()'),
-            
-            # FindObjectsOfType -> FindObjectsByType
-            (r'FindObjectsOfType<([^>]+)>\(\)', r'FindObjectsByType<\1>(FindObjectsSortMode.None)'),
-            (r'GameObject\.FindObjectsOfType<([^>]+)>\(\)', r'FindObjectsByType<\1>(FindObjectsSortMode.None)'),
-            (r'Object\.FindObjectsOfType<([^>]+)>\(\)', r'FindObjectsByType<\1>(FindObjectsSortMode.None)'),
-            
-            # Unity 6 WebGL API 호환성 수정
-            (r'PlayerSettings\.WebGL\.debugSymbols\s*=\s*false', r'PlayerSettings.WebGL.debugSymbolMode = WebGLDebugSymbolMode.Off'),
-            (r'PlayerSettings\.WebGL\.debugSymbols\s*=\s*true', r'PlayerSettings.WebGL.debugSymbolMode = WebGLDebugSymbolMode.External'),
-            (r'PlayerSettings\.WebGL\.wasmStreaming\s*=\s*[^;]+;', r'// Unity 6에서 wasmStreaming 제거됨 (decompressionFallback에 따라 자동 결정)'),
-            (r'PlayerSettings\.SplashScreen\.logoAnimationMode[^;]+;', r'// Unity 6에서 logoAnimationMode 제거됨'),
-            (r'PlayerSettings\.GetIconsForTargetGroup\(BuildTargetGroup\.([^)]+)\)', 
-             r'PlayerSettings.GetIcons(NamedBuildTarget.\1, IconKind.Application)'),
-            
-            # Camera.main -> Camera.current (일부 상황에서)
-            # 주의: 이 교체는 상황에 따라 다를 수 있으므로 주석으로 남겨둠
-            # (r'Camera\.main', r'Camera.current'),
-        ]
-        
-        # 각 교체 규칙 적용
-        import re
-        for old_pattern, new_pattern in api_replacements:
-            matches = re.findall(old_pattern, content)
-            if matches:
-                content = re.sub(old_pattern, new_pattern, content)
-                changes_made.append(f"'{old_pattern}' -> '{new_pattern}' ({len(matches)}개 교체)")
-        
-        # 변경사항이 있으면 파일 저장
-        if content != original_content:
-            with open(filepath, 'w', encoding='utf-8') as f:
-                f.write(content)
-            return True, changes_made
-        else:
-            return False, []
-            
-    except Exception as e:
-        print(f"Unity 6 API 교체 실패 ({filepath}): {e}")
-        return False, []
-
-def process_unity6_compatibility(project_dirs):
-    """모든 프로젝트에서 Unity 6 호환성 문제를 수정합니다."""
-    print("\n=== Unity 6 API 호환성 수정 시작 ===")
-    
-    total_files_processed = 0
-    total_files_changed = 0
-    total_changes = 0
-    
-    for project_dir in project_dirs:
-        if not os.path.exists(project_dir):
-            continue
-            
-        project_name = get_project_name_from_path(project_dir)
-        print(f"\n--- {project_name} Unity 6 호환성 수정 ---")
-        
-        assets_dir = os.path.join(project_dir, "Assets")
-        if not os.path.exists(assets_dir):
-            print(f"Assets 폴더 없음: {project_dir}")
-            continue
-        
-        files_processed = 0
-        files_changed = 0
-        project_changes = 0
-        
-        # Assets 폴더의 모든 C# 파일 처리
-        for root, dirs, files in os.walk(assets_dir):
-            # Library, Temp 등 불필요한 폴더 제외
-            dirs[:] = [d for d in dirs if not d.startswith('.') and d not in ['Library', 'Temp', 'Logs']]
-            
-            for file in files:
-                if file.endswith('.cs'):
-                    filepath = os.path.join(root, file)
-                    files_processed += 1
-                    
-                    # Unity 6 API 호환성 수정
-                    changed, changes = fix_unity6_deprecated_apis(filepath)
-                    if changed:
-                        files_changed += 1
-                        project_changes += len(changes)
-                        print(f"  ✅ {file}: {len(changes)}개 API 교체")
-                        for change in changes:
-                            print(f"    - {change}")
-                    else:
-                        print(f"  ⚪ {file}: 변경 없음")
-        
-        print(f"  📊 {project_name} 결과: {files_processed}개 파일 중 {files_changed}개 수정, 총 {project_changes}개 API 교체")
-        
-        total_files_processed += files_processed
-        total_files_changed += files_changed
-        total_changes += project_changes
-    
-    print(f"\n=== Unity 6 API 호환성 수정 완료 ===")
-    print(f"📊 전체 결과: {total_files_processed}개 파일 중 {total_files_changed}개 수정")
-    print(f"🔧 총 {total_changes}개 deprecated API 교체 완료")
-    
-    return total_files_changed > 0
-
-def create_unity6_compatibility_report(project_dirs):
-    """Unity 6 호환성 보고서를 생성합니다."""
-    print("\n=== Unity 6 호환성 검사 보고서 생성 ===")
-    
-    deprecated_patterns = [
-        r'FindObjectOfType<[^>]+>\(\)',
-        r'FindObjectsOfType<[^>]+>\(\)',
-        r'PlayerSettings\.WebGL\.debugSymbols',  # Unity 6에서 debugSymbolMode로 변경
-        r'PlayerSettings\.WebGL\.wasmStreaming',  # Unity 6에서 제거됨
-        r'PlayerSettings\.SplashScreen\.logoAnimationMode',  # Unity 6에서 제거됨
-        r'PlayerSettings\.GetIconsForTargetGroup\(',  # Unity 6에서 GetIcons로 변경
-        r'Camera\.main(?!\w)',  # Camera.main (단어 경계 확인)
-        r'\.SetActive\(true\).*\.SetActive\(false\)',  # 비효율적인 SetActive 패턴
-    ]
-    
-    report_lines = []
-    report_lines.append("# Unity 6 호환성 검사 보고서")
-    report_lines.append(f"생성 시간: {time.strftime('%Y-%m-%d %H:%M:%S')}")
-    report_lines.append("")
-    
-    for project_dir in project_dirs:
-        if not os.path.exists(project_dir):
-            continue
-            
-        project_name = get_project_name_from_path(project_dir)
-        report_lines.append(f"## 프로젝트: {project_name}")
-        
-        assets_dir = os.path.join(project_dir, "Assets")
-        if not os.path.exists(assets_dir):
-            report_lines.append("❌ Assets 폴더 없음")
-            continue
-        
-        project_issues = []
-        
-        for root, dirs, files in os.walk(assets_dir):
-            dirs[:] = [d for d in dirs if not d.startswith('.') and d not in ['Library', 'Temp', 'Logs']]
-            
-            for file in files:
-                if file.endswith('.cs'):
-                    filepath = os.path.join(root, file)
-                    try:
-                        with open(filepath, 'r', encoding='utf-8') as f:
-                            content = f.read()
-                        
-                        import re
-                        for pattern in deprecated_patterns:
-                            matches = re.findall(pattern, content)
-                            if matches:
-                                relative_path = os.path.relpath(filepath, project_dir)
-                                project_issues.append(f"  - {relative_path}: {pattern} ({len(matches)}개)")
-                    except Exception as e:
-                        continue
-        
-        if project_issues:
-            report_lines.append("⚠️ 발견된 호환성 문제:")
-            report_lines.extend(project_issues)
-        else:
-            report_lines.append("✅ 호환성 문제 없음")
-        
-        report_lines.append("")
-    
-    # 보고서 파일 저장
-    report_path = os.path.join(os.path.dirname(__file__), "unity6_compatibility_report.md")
-    try:
-        with open(report_path, 'w', encoding='utf-8') as f:
-            f.write('\n'.join(report_lines))
-        print(f"📋 호환성 보고서 생성 완료: {report_path}")
-    except Exception as e:
-        print(f"❌ 보고서 생성 실패: {e}")
-# endregion
 
 # =========================
 # #region SystemManager 메소드 추가 함수들
@@ -931,27 +845,49 @@ def add_method_to_script(filepath, method_name, method_content):
         with open(filepath, 'r', encoding='utf-8') as f:
             content = f.read()
         
-        # 클래스의 마지막 닫는 중괄호 찾기
+        # 클래스의 마지막 닫는 중괄호 찾기 (더 안전한 방식)
         lines = content.split('\n')
+        
+        # 클래스 선언 찾기
+        class_start_line = -1
+        for i, line in enumerate(lines):
+            if ('class ' in line and 'SystemManager' in line) or ('public class' in line):
+                class_start_line = i
+                break
+        
+        if class_start_line == -1:
+            print(f"클래스 선언을 찾을 수 없습니다: {filepath}")
+            return False
+        
+        # 클래스 시작 이후에서 마지막 중괄호 찾기
         last_brace_index = -1
         brace_count = 0
+        in_class = False
         
-        # 역순으로 찾아서 클래스의 마지막 중괄호 위치 찾기
-        for i in range(len(lines) - 1, -1, -1):
+        for i in range(class_start_line, len(lines)):
             line = lines[i].strip()
-            if line == '}':
+            
+            # 클래스 시작 중괄호 찾기
+            if not in_class and '{' in line:
+                in_class = True
+                brace_count = 1
+                continue
+            
+            if in_class:
+                # 중괄호 계산
+                brace_count += line.count('{')
+                brace_count -= line.count('}')
+                
+                # 클래스가 끝나는 지점 (brace_count가 0이 되는 지점)
                 if brace_count == 0:
                     last_brace_index = i
                     break
-                brace_count += 1
-            elif line == '{':
-                brace_count -= 1
         
         if last_brace_index == -1:
             print(f"클래스 닫는 중괄호를 찾을 수 없습니다: {filepath}")
             return False
         
-        # 메소드 추가
+        # 메소드 추가 (닫는 중괄호 바로 전에)
         lines.insert(last_brace_index, "")  # 빈 줄 추가
         lines.insert(last_brace_index + 1, method_content)
         
@@ -1045,6 +981,157 @@ def add_custom_method_to_system_managers(project_dirs, method_name, method_conte
         # 원래 템플릿으로 복원
         SYSTEM_MANAGER_METHODS.clear()
         SYSTEM_MANAGER_METHODS.update(original_methods)
+
+def add_hello_world_method_to_system_manager(filepath):
+    """SystemManager에 Hello World 메소드를 추가합니다."""
+    hello_world_method = '''    private void PrintHelloWorld()
+    {
+        Debug.Log("Hello World!");
+    }'''
+    
+    # 메소드가 이미 존재하는지 확인
+    if has_method(filepath, "PrintHelloWorld"):
+        print(f"  ⚪ PrintHelloWorld 메소드가 이미 존재합니다.")
+        return True
+    
+    # 메소드 추가
+    if add_method_to_script(filepath, "PrintHelloWorld", hello_world_method):
+        print(f"  ✅ PrintHelloWorld 메소드 추가 완료")
+        return True
+    else:
+        print(f"  ❌ PrintHelloWorld 메소드 추가 실패")
+        return False
+
+def add_hello_world_call_to_start_method(filepath):
+    """SystemManager의 Start() 함수 가장 아래에 PrintHelloWorld() 호출을 추가합니다."""
+    try:
+        with open(filepath, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        # Start() 메소드를 찾아서 그 끝에 PrintHelloWorld() 호출 추가
+        lines = content.split('\n')
+        
+        # Start() 메소드 찾기 (더 정확한 패턴)
+        start_method_found = False
+        start_method_line = -1
+        method_brace_count = 0
+        start_method_end_line = -1
+        start_brace_found = False
+        
+        for i, line in enumerate(lines):
+            stripped_line = line.strip()
+            
+            # Start() 메소드 시작 찾기 (더 정확한 패턴)
+            if not start_method_found and ('void Start()' in line or 'void Start(' in line) and ('private' in line or 'public' in line or 'protected' in line or stripped_line.startswith('void')):
+                start_method_found = True
+                start_method_line = i
+                print(f"  📍 Start() 메소드 발견: {start_method_line + 1}번째 줄")
+                
+                # 같은 줄에 중괄호가 있는지 확인
+                if '{' in line:
+                    start_brace_found = True
+                    method_brace_count = 1
+                continue
+            
+            # Start() 메소드 내부에서 중괄호 카운팅
+            if start_method_found and start_method_end_line == -1:
+                # 시작 중괄호를 아직 못 찾았다면 찾기
+                if not start_brace_found and '{' in stripped_line:
+                    start_brace_found = True
+                    method_brace_count = 1
+                    continue
+                
+                # 시작 중괄호를 찾았다면 중괄호 카운팅 시작
+                if start_brace_found:
+                    method_brace_count += stripped_line.count('{')
+                    method_brace_count -= stripped_line.count('}')
+                    
+                    # Start() 메소드가 끝나는 지점
+                    if method_brace_count == 0:
+                        start_method_end_line = i
+                        print(f"  📍 Start() 메소드 끝: {start_method_end_line + 1}번째 줄")
+                        break
+        
+        if not start_method_found:
+            print(f"  ❌ Start() 메소드를 찾을 수 없습니다.")
+            return False
+        
+        if start_method_end_line == -1:
+            print(f"  ❌ Start() 메소드의 끝을 찾을 수 없습니다.")
+            return False
+        
+        # 이미 PrintHelloWorld() 호출이 있는지 확인
+        start_method_content = '\n'.join(lines[start_method_line:start_method_end_line + 1])
+        if 'PrintHelloWorld()' in start_method_content:
+            print(f"  ⚪ Start() 메소드에 PrintHelloWorld() 호출이 이미 존재합니다.")
+            return True
+        
+        # Start() 메소드 끝 바로 전에 PrintHelloWorld() 호출 추가
+        # 닫는 중괄호 바로 전에 들여쓰기와 함께 추가
+        indent = "        "  # 8칸 들여쓰기 (일반적인 메소드 내부 들여쓰기)
+        
+        # 기존 줄의 들여쓰기 패턴 분석 (Start() 메소드 내부에서)
+        for check_line in range(start_method_end_line - 1, start_method_line, -1):
+            if lines[check_line].strip() and not lines[check_line].strip().startswith('}'):
+                # 비어있지 않고 닫는 중괄호가 아닌 줄의 들여쓰기 패턴을 가져옴
+                leading_spaces = len(lines[check_line]) - len(lines[check_line].lstrip())
+                if leading_spaces > 0:
+                    indent = ' ' * leading_spaces
+                    break
+        
+        lines.insert(start_method_end_line, f"{indent}PrintHelloWorld();")
+        lines.insert(start_method_end_line, "")  # 빈 줄 추가
+        
+        # 파일에 저장
+        with open(filepath, 'w', encoding='utf-8') as f:
+            f.write('\n'.join(lines))
+        
+        print(f"  ✅ Start() 메소드에 PrintHelloWorld() 호출 추가 완료")
+        return True
+        
+    except Exception as e:
+        print(f"  ❌ Start() 메소드 수정 실패: {e}")
+        return False
+
+def add_hello_world_to_all_system_managers(project_dirs):
+    """모든 SystemManager에 Hello World 메소드를 추가하고 Start() 함수에서 호출하도록 설정합니다."""
+    print(f"\n=== SystemManager Hello World 메소드 추가 시작 ===")
+    
+    # SystemManager 파일들 찾기
+    system_manager_files = find_system_manager_files(project_dirs)
+    
+    if not system_manager_files:
+        print("SystemManager.cs 파일을 찾을 수 없습니다.")
+        return False
+    
+    print(f"총 {len(system_manager_files)}개 SystemManager 파일 발견")
+    
+    success_count = 0
+    fail_count = 0
+    
+    for project_name, filepath in system_manager_files:
+        print(f"\n--- {project_name} SystemManager 처리 ---")
+        
+        # 1. Hello World 메소드 추가
+        method_added = add_hello_world_method_to_system_manager(filepath)
+        
+        # 2. Start() 함수에 호출 추가
+        call_added = add_hello_world_call_to_start_method(filepath)
+        
+        # 결과 집계
+        if method_added and call_added:
+            success_count += 1
+            print(f"  📊 {project_name}: Hello World 메소드 추가 및 Start() 호출 설정 완료")
+        else:
+            fail_count += 1
+            print(f"  📊 {project_name}: Hello World 설정 실패")
+    
+    print(f"\n=== SystemManager Hello World 메소드 추가 결과 ===")
+    print(f"성공: {success_count}개")
+    print(f"실패: {fail_count}개")
+    print(f"총 처리: {len(system_manager_files)}개")
+    
+    return success_count > 0
 
 # endregion
 
@@ -1684,37 +1771,33 @@ def print_usage():
     print("")
     print("옵션:")
     print("  --help           이 도움말을 표시합니다")
-    print("  --skip-git       Git 작업을 건너뜁니다 (패키지 추가만 실행)")
-    print("  --git-only       Git 작업만 실행합니다 (패키지 추가 건너뜀)")
+    print("  --package-only   패키지 추가만 실행 (Git 작업 제외)")
+    print("  --git-push       Git 커밋 및 푸시만 실행 (패키지 추가 제외)")
+    print("  --git-commit     Git 커밋만 실행 (푸시 제외)")
     print("  --unity-batch    Unity 배치 모드로 Editor 스크립트 실행 (40개 프로젝트 자동화)")
-    print("  --full-auto      모든 작업 + Unity 배치 모드 실행 (완전 자동화)")
     print("  --parallel       Unity 배치 모드를 병렬로 실행 (빠른 처리, 메모리 사용량 증가)")
     print("  --build-webgl    Unity WebGL 빌드 자동화 (Player Settings 완전 반영)")
     print("  --build-parallel WebGL 빌드를 병렬로 실행 (2개씩 동시 빌드)")
     print("  --build-only     WebGL 빌드만 실행 (Git 작업 및 패키지 추가 제외)")
     print("  --clean-builds   중앙 집중식 빌드 출력물 정리 (프로젝트별 폴더 삭제)")
-    print("  --fix-unity6     Unity 6 deprecated API 자동 수정 (FindObjectOfType 등)")
-    print("  --check-unity6   Unity 6 호환성 검사 보고서 생성")
+
     print("  --add-system-methods SystemManager에 공통 메소드 추가 (AllowKeyboardInput 등)")
+    print("  --add-hello-world    SystemManager에 Hello World 메소드 추가 및 Start() 호출 설정")
     print("")
     print("기본 동작:")
-    print("1. Unity 패키지 추가")
-    print("2. Git 커밋 및 푸시 (계층구조 최하위 브랜치 또는 dev 브랜치)")
+    print("1. Unity 패키지 추가만 실행 (Git 작업 분리)")
     print("")
-    print("Unity 6 호환성 수정 (--fix-unity6):")
-    print("- FindObjectOfType -> FindFirstObjectByType 자동 교체")
-    print("- FindObjectsOfType -> FindObjectsByType 자동 교체")
-    print("- PlayerSettings.GetIconsForTargetGroup -> PlayerSettings.GetIcons 교체")
-    print("- 기타 Unity 6에서 deprecated된 API들 일괄 수정")
-    print("- 모든 C# 스크립트 파일을 자동으로 스캔하여 수정")
-    print("- 변경 내용 상세 로그 출력")
+    print("Git 작업 (별도 실행):")
+    print("  --git-push       모든 프로젝트에 Git 커밋 및 푸시 실행")
+    print("  --git-commit     모든 프로젝트에 Git 커밋만 실행 (푸시 제외)")
     print("")
-    print("Unity 배치 모드 (--unity-batch, --full-auto):")
+    print("Unity 배치 모드 (--unity-batch):")
     print("- Unity Editor를 배치 모드로 실행하여 Editor 스크립트 자동 실행")
     print("- 패키지 임포트 및 프로젝트 설정 검증 수행")
     print("- 40개 프로젝트를 순차적으로 자동 처리 (기본)")
     print("- --parallel 옵션으로 병렬 처리 가능 (3개씩 동시 실행)")
     print("- Unity GUI 없이 백그라운드에서 실행")
+    print("- Git 작업과 독립적으로 실행 (자동 커밋/푸시 없음)")
     print("")
     print("Unity WebGL 중앙 집중식 빌드 자동화 (--build-webgl):")
     print("- Unity CLI를 사용하여 WebGL 프로젝트를 중앙 집중식으로 자동 빌드")
@@ -1744,11 +1827,27 @@ def print_usage():
     print("- 같은 이름의 메소드가 이미 존재하면 자동 생략")
     print("- 다른 메소드도 SYSTEM_MANAGER_METHODS 딕셔너리에 추가하여 사용 가능")
     print("- 사용자 정의 메소드는 add_custom_method_to_system_managers() 함수 사용")
+    print("- 변경사항이 있으면 자동으로 Git 커밋 (푸시 제외)")
+    print("")
+    print("SystemManager Hello World 메소드 추가 (--add-hello-world):")
+    print("- 모든 프로젝트의 SystemManager.cs 파일을 자동 탐색")
+    print("- 클래스의 제일 아래에 private void PrintHelloWorld() 메소드 추가")
+    print("- 기존 Start() 함수의 가장 아래에 PrintHelloWorld() 호출 추가")
+    print("- Debug.Log(\"Hello World!\") 로그 출력")
+    print("- 이미 메소드가 존재하거나 호출이 있으면 자동 생략")
+    print("- 들여쓰기 패턴 자동 분석하여 코드 스타일 유지")
+    print("- 변경사항이 있으면 자동으로 Git 커밋 (푸시 제외)")
     print("")
     print("Git 브랜치 전략:")
     print("- 브랜치 계층구조에서 가장 깊은(아래) 브랜치를 우선 사용")
     print("- 커밋 수가 많고 최근에 작업된 브랜치 선택")
     print("- 적절한 브랜치가 없으면 dev 브랜치 사용/생성")
+    print("")
+    print("Git 작업 분리 시스템:")
+    print("- 패키지 추가와 Git 커밋/푸시를 독립적으로 실행 가능")
+    print("- 빌드 작업 시 Git 작업 자동 실행 방지")
+    print("- 필요에 따라 커밋만 하거나 푸시까지 선택 가능")
+    print("- 각 작업의 실행 시점을 개발자가 직접 제어")
     print("=====================================")
 
 def main():
@@ -1761,89 +1860,79 @@ def main():
     print("=== Unity 프로젝트 자동화 도구 시작 ===\n")
     
     # 명령행 인수 확인
-    skip_git = "--skip-git" in sys.argv
-    git_only = "--git-only" in sys.argv
+    package_only = "--package-only" in sys.argv
+    git_push = "--git-push" in sys.argv
+    git_commit = "--git-commit" in sys.argv
     unity_batch = "--unity-batch" in sys.argv
-    full_auto = "--full-auto" in sys.argv
     parallel = "--parallel" in sys.argv
     build_webgl = "--build-webgl" in sys.argv
     build_parallel = "--build-parallel" in sys.argv
     build_only = "--build-only" in sys.argv
     clean_builds = "--clean-builds" in sys.argv
-    fix_unity6 = "--fix-unity6" in sys.argv
-    check_unity6 = "--check-unity6" in sys.argv
+
     add_system_methods = "--add-system-methods" in sys.argv
+    add_hello_world = "--add-hello-world" in sys.argv
     
+    # 옵션에 따른 모드 설정
     if build_only:
         print("WebGL 빌드만 실행합니다 (Git 작업 및 패키지 추가 제외)...\n")
-        build_webgl = True  # build_only는 build_webgl 포함
-        skip_git = True     # Git 작업 건너뜀
-    elif full_auto:
-        print("완전 자동화 모드: 모든 작업 + Unity 배치 모드 실행...\n")
-        unity_batch = True  # full_auto는 unity_batch 포함
+        build_webgl = True
+    elif package_only:
+        print("패키지 추가만 실행합니다 (Git 작업 제외)...\n")
+    elif git_push:
+        print("Git 커밋 및 푸시만 실행합니다 (패키지 추가 제외)...\n")
+    elif git_commit:
+        print("Git 커밋만 실행합니다 (푸시 제외)...\n")
     elif unity_batch:
         print("Unity 배치 모드만 실행합니다...\n")
-        skip_git = True  # unity_batch만 실행할 때는 다른 작업 건너뜀
-    elif git_only:
-        print("Git 작업만 실행합니다...\n")
-    elif skip_git:
-        print("Git 작업을 건너뜁니다...\n")
-    
-    # Unity 6 호환성 검사만 실행하는 경우
-    if check_unity6:
-        create_unity6_compatibility_report(project_dirs)
-        return
-    
-    # Unity 6 호환성 수정만 실행하는 경우
-    if fix_unity6:
-        print("Unity 6 호환성 수정 시작...")
-        changes_made = process_unity6_compatibility(project_dirs)
-        
-        # 변경사항이 있으면 Git 커밋
-        if changes_made:
-            print("\n변경사항이 있어 Git 커밋을 진행합니다...")
-            for project_dir in project_dirs:
-                if os.path.exists(project_dir):
-                    commit_and_push_changes(project_dir, "unity6_compatibility")
-        else:
-            print("변경사항이 없어 Git 커밋을 생략합니다.")
-        return
+    elif clean_builds:
+        print("빌드 출력물 정리만 실행합니다...\n")
+    elif not (add_system_methods or add_hello_world):
+        print("기본 모드: 패키지 추가만 실행합니다...\n")
     
     # SystemManager 메소드 추가만 실행하는 경우
     if add_system_methods:
         print("SystemManager 메소드 추가 시작...")
         methods_added = add_methods_to_system_managers(project_dirs)
         
-        # 변경사항이 있으면 Git 커밋
+        # 변경사항이 있으면 Git 커밋만 (푸시 제외)
         if methods_added:
-            print("\n메소드가 추가되어 Git 커밋을 진행합니다...")
+            print("\n메소드가 추가되어 Git 커밋을 진행합니다 (푸시 제외)...")
             for project_dir in project_dirs:
                 if os.path.exists(project_dir):
-                    commit_and_push_changes(project_dir, "system_manager_update")
+                    commit_changes(project_dir, "system_manager_update")
         else:
             print("변경사항이 없어 Git 커밋을 생략합니다.")
         return
-
-    # 패키지 추가 (git-only나 build-only가 아닌 경우에만 실행)
-    if not git_only and not build_only:
+    
+    # SystemManager Hello World 메소드 추가만 실행하는 경우
+    if add_hello_world:
+        print("SystemManager Hello World 메소드 추가 시작...")
+        hello_world_added = add_hello_world_to_all_system_managers(project_dirs)
+        
+        # 변경사항이 있으면 Git 커밋만 (푸시 제외)
+        if hello_world_added:
+            print("\nHello World 메소드가 추가되어 Git 커밋을 진행합니다 (푸시 제외)...")
+            for project_dir in project_dirs:
+                if os.path.exists(project_dir):
+                    commit_changes(project_dir, "system_manager_update", "FEAT: SystemManager에 Hello World 메소드 추가 및 Start() 호출 설정")
+        else:
+            print("변경사항이 없어 Git 커밋을 생략합니다.")
+        return
+    
+    # 패키지 추가 (git_push나 git_commit이 아닌 경우에만 실행)
+    if not git_push and not git_commit and not build_only and not unity_batch and not clean_builds:
         print("1. Unity 패키지 추가 작업 시작...")
         for project_dir in project_dirs:
             project_name = get_project_name_from_path(project_dir)
             print(f"\n--- {project_name} 패키지 추가 ---")
             add_git_packages_to_manifest(project_dir, git_packages)
 
-    # 2. Git 커밋 및 푸시 (skip-git가 아닌 경우에만 실행)
-    if not skip_git:
+    # Git 커밋 및 푸시 (git_push인 경우에만 실행)
+    if git_push:
         print("\n2. Git 커밋 및 푸시 작업 시작...")
         
-        # 커밋 메시지 타입 결정
-        if full_auto:
-            commit_message_type = "full_automation"
-        elif unity_batch:
-            commit_message_type = "batch_process"
-        else:
-            commit_message_type = "package_update"
-        
+        commit_message_type = "package_update"
         print(f"📝 커밋 메시지 타입: {commit_message_type}")
         
         for project_dir in project_dirs:
@@ -1851,8 +1940,21 @@ def main():
                 commit_and_push_changes(project_dir, commit_message_type)
             else:
                 print(f"프로젝트 폴더 없음: {project_dir}")
+    
+    # Git 커밋만 (git_commit인 경우에만 실행)
+    if git_commit:
+        print("\n2. Git 커밋 작업 시작 (푸시 제외)...")
+        
+        commit_message_type = "package_update"
+        print(f"📝 커밋 메시지 타입: {commit_message_type}")
+        
+        for project_dir in project_dirs:
+            if os.path.exists(project_dir):
+                commit_changes(project_dir, commit_message_type)
+            else:
+                print(f"프로젝트 폴더 없음: {project_dir}")
 
-    # 3. Unity 배치 모드 실행 (unity-batch 또는 full-auto인 경우에만 실행)
+    # Unity 배치 모드 실행 (unity-batch인 경우에만 실행)
     if unity_batch:
         print("\n3. Unity 배치 모드 실행 시작...")
         print(f"총 {len(project_dirs)}개 프로젝트 처리 예정")
@@ -1895,12 +1997,12 @@ def main():
             print(f"실패: {fail_count}개")
             print(f"총 처리: {success_count + fail_count}개")
     
-    # 4. 빌드 출력물 정리 (clean-builds인 경우에만 실행)
+    # 빌드 출력물 정리 (clean-builds인 경우에만 실행)
     if clean_builds:
         print("\n4. 빌드 출력물 정리 시작...")
         clean_build_outputs(project_dirs)
     
-    # 5. Unity WebGL 프로젝트 빌드 (build-webgl인 경우에만 실행)
+    # Unity WebGL 프로젝트 빌드 (build-webgl인 경우에만 실행)
     if build_webgl:
         print(f"\n5. Unity WebGL 프로젝트 빌드 시작...")
         
