@@ -556,7 +556,7 @@ def process_unity_project_batch(project_path):
     
     print(f"\n=== {project_name} Unity 배치 처리 시작 ===")
     
-    # Unity 배치 모드 실행 (패키지 임포트 및 Editor 스크립트 실행)
+    # Unity 배치 모드 실행 (패키지 임포트 및 프로젝트 설정 검증)
     success = run_unity_batch_mode(project_path)
     
     if success:
@@ -584,27 +584,35 @@ public class AutoBatchProcessor
     {
         Debug.Log("=== 배치 처리 시작 ===");
         
-        // 패키지 임포트 대기
+        // 패키지 임포트 및 Asset Database 갱신
         AssetDatabase.Refresh();
         
-        // PackageAssetCopier가 있다면 실행
-        var copierType = System.Type.GetType("PackageAssetCopier");
-        if (copierType != null)
-        {
-            var method = copierType.GetMethod("CopyFilesFromPackage", 
-                System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Static);
-            if (method != null)
-            {
-                Debug.Log("PackageAssetCopier.CopyFilesFromPackage 실행");
-                method.Invoke(null, null);
-            }
-        }
+        // 프로젝트 설정 검증
+        ValidateProjectSettings();
         
         // 최종 Asset Database 갱신
         AssetDatabase.Refresh();
         AssetDatabase.SaveAssets();
         
         Debug.Log("=== 배치 처리 완료 ===");
+    }
+    
+    private static void ValidateProjectSettings()
+    {
+        Debug.Log("프로젝트 설정 검증 중...");
+        
+        // 기본 프로젝트 설정 확인
+        if (string.IsNullOrEmpty(PlayerSettings.productName))
+        {
+            Debug.LogWarning("제품명이 설정되지 않았습니다.");
+        }
+        
+        if (string.IsNullOrEmpty(PlayerSettings.companyName))
+        {
+            Debug.LogWarning("회사명이 설정되지 않았습니다.");
+        }
+        
+        Debug.Log("프로젝트 설정 검증 완료");
     }
 }
 '''
@@ -1703,7 +1711,7 @@ def print_usage():
     print("")
     print("Unity 배치 모드 (--unity-batch, --full-auto):")
     print("- Unity Editor를 배치 모드로 실행하여 Editor 스크립트 자동 실행")
-    print("- PackageAssetCopier 등의 [InitializeOnLoad] 스크립트 실행")
+    print("- 패키지 임포트 및 프로젝트 설정 검증 수행")
     print("- 40개 프로젝트를 순차적으로 자동 처리 (기본)")
     print("- --parallel 옵션으로 병렬 처리 가능 (3개씩 동시 실행)")
     print("- Unity GUI 없이 백그라운드에서 실행")

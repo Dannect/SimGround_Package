@@ -63,24 +63,35 @@ public class AutoBatchProcessor
     {
         Debug.Log("=== 배치 처리 시작 ===");
         
-        // 패키지 임포트 대기
+        // 패키지 임포트 및 Asset Database 갱신
         AssetDatabase.Refresh();
         
-        // PackageAssetCopier가 있다면 실행
-        var copierType = System.Type.GetType("PackageAssetCopier");
-        if (copierType != null)
-        {
-            var method = copierType.GetMethod("CopyFilesFromPackage");
-            if (method != null)
-            {
-                method.Invoke(null, null);
-            }
-        }
+        // 프로젝트 설정 검증
+        ValidateProjectSettings();
         
+        // 최종 Asset Database 갱신
         AssetDatabase.Refresh();
         AssetDatabase.SaveAssets();
         
         Debug.Log("=== 배치 처리 완료 ===");
+    }
+    
+    private static void ValidateProjectSettings()
+    {
+        Debug.Log("프로젝트 설정 검증 중...");
+        
+        // 기본 프로젝트 설정 확인
+        if (string.IsNullOrEmpty(PlayerSettings.productName))
+        {
+            Debug.LogWarning("제품명이 설정되지 않았습니다.");
+        }
+        
+        if (string.IsNullOrEmpty(PlayerSettings.companyName))
+        {
+            Debug.LogWarning("회사명이 설정되지 않았습니다.");
+        }
+        
+        Debug.Log("프로젝트 설정 검증 완료");
     }
 }
 ```
@@ -89,6 +100,11 @@ public class AutoBatchProcessor
 ```bash
 Unity.exe -batchmode -quit -projectPath "E:\Project1" -logFile -
 ```
+
+#### 배치 스크립트 동작 내용
+- **패키지 임포트**: Unity 패키지 매니저를 통해 추가된 패키지들을 임포트
+- **프로젝트 설정 검증**: 기본 프로젝트 설정 확인 및 경고 출력
+- **Asset Database 갱신**: 모든 변경사항을 Unity 시스템에 반영
 
 ### 4. 처리 흐름
 
