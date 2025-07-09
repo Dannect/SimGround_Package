@@ -4,14 +4,15 @@ import subprocess
 import sys
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from string import Template
 
 
 # =========================
 # #region 프로젝트 폴더 및 패키지 정보 (최상단에 위치)
 # =========================
 project_dirs = [
-    r"E:\6.1.4.5_ConvexLensLight",
-    r"E:\6.1.4.6_ConvexLensObservation",
+    r"C:\Users\wkzkx\Desktop\Lim\GitHub\6.1.4.5_ConvexLensLight",
+    r"C:\Users\wkzkx\Desktop\Lim\GitHub\6.1.4.6_ConvexLensObservation",
     # 40개 프로젝트 경로를 여기에 추가하세요
     # 예시:
     # r"E:\Project1",
@@ -53,12 +54,12 @@ def get_unity_projects_from_directory(base_dir):
 # project_dirs.extend(get_unity_projects_from_directory(r"E:\UnityProjects"))
 
 git_packages = {
-    "com.dannect.toolkit": "https://github.com/mmporong/SimGround_Package.git"
+    "com.dannect.toolkit": "https://github.com/Dannect/SimGround_Package.git"
     # 필요시 추가
 }
 
 # Git 설정
-GIT_BASE_URL = "https://github.com/mmporong/"
+GIT_BASE_URL = "https://github.com/Dannect/"
 DEFAULT_BRANCH = "main"
 DEV_BRANCH = "dev"
 
@@ -74,14 +75,14 @@ COMMIT_MESSAGES = {
 }
 
 # Unity CLI 설정
-UNITY_EDITOR_PATH = r"D:\Unity\6000.0.30f1\Editor\Unity.exe"  # Unity 설치 경로 (실제 설치 경로로 수정 필요)
+UNITY_EDITOR_PATH = r"C:\Program Files\Unity\Hub\Editor\6000.0.30f1\Editor\Unity.exe"  # Unity 설치 경로
 UNITY_TIMEOUT = 300  # Unity 실행 타임아웃 (초)
 UNITY_LOG_LEVEL = "info"  # Unity 로그 레벨 (debug, info, warning, error)
 
 # Unity WebGL 빌드 설정
 BUILD_TARGET = "WebGL"  # WebGL 전용
 DEFAULT_BUILD_TARGET = "webgl"
-BUILD_OUTPUT_DIR = r"E:\WebGL_Builds"  # 중앙 집중식 빌드 출력 폴더
+BUILD_OUTPUT_DIR = r"C:\Users\wkzkx\Desktop\Lim\GitHub\Build"  # 중앙 집중식 빌드 출력 폴더
 BUILD_TIMEOUT = 1800  # WebGL 빌드 타임아웃 (30분)
 # endregion
 
@@ -1087,22 +1088,22 @@ def create_unity_webgl_build_script(project_path, output_path=None, auto_configu
     project_name = get_project_name_from_path(project_path)
     
     if output_path is None:
-        # 중앙 집중식 빌드 경로: E:\WebGL_Builds\프로젝트명\
+        # 중앙 집중식 빌드 경로: C:\Users\wkzkx\Desktop\Lim\GitHub\Build\프로젝트명\
         output_path = os.path.join(BUILD_OUTPUT_DIR, project_name)
     
     output_path_formatted = output_path.replace(os.sep, '/')
     
-    # WebGL 전용 Player Settings를 자동 설정하고 빌드하는 스크립트 (Unity 6 호환)
-    script_content = f"""using UnityEngine;
+    # Template 시스템을 사용하여 Unity 스크립트 생성
+    script_template = Template("""using UnityEngine;
 using UnityEditor;
 using UnityEditor.Build;
 using System.IO;
 
 public class AutoWebGLBuildScript
-{{
+{
     [MenuItem("Build/Auto Build WebGL (Player Settings)")]
     public static void BuildWebGLWithPlayerSettings()
-    {{
+    {
         Debug.Log("=== WebGL Player Settings 자동 설정 및 빌드 시작 ===");
         
         // WebGL Player Settings 자동 설정
@@ -1114,35 +1115,48 @@ public class AutoWebGLBuildScript
         // 프로젝트명 추출 (Unity에서 스크립트가 실행되는 프로젝트의 이름)
         string projectName = Application.productName;
         if (string.IsNullOrEmpty(projectName))
-        {{
+        {
             // ProductName이 없으면 프로젝트 폴더명 사용
             projectName = new DirectoryInfo(Application.dataPath).Parent.Name;
-        }}
+        }
         
         // 특수문자 제거 및 안전한 파일명 생성
         string safeProjectName = projectName.Replace(" ", "_");
-        safeProjectName = System.Text.RegularExpressions.Regex.Replace(safeProjectName, @"[^\\w\\-_]", "");
+        safeProjectName = System.Text.RegularExpressions.Regex.Replace(safeProjectName, @"[^\\w\\-_\\.]", "");
         
-        // 중앙 집중식 빌드 경로 설정: E:\WebGL_Builds\프로젝트명
-        string buildPath = @"$output_path_formatted";
+        // 중앙 집중식 빌드 경로 설정: C:/Users/wkzkx/Desktop/Lim/GitHub/Build/프로젝트명
+        string buildPath = @"$output_path";
         
-        // 출력 디렉토리 생성
-        if (!Directory.Exists(buildPath))
-        {{
-            Directory.CreateDirectory(buildPath);
-            Debug.Log($"중앙 집중식 빌드 출력 디렉토리 생성: {{buildPath}}");
-        }}
+        // 출력 디렉토리 생성 (상위 폴더까지 모두 생성)
+        try
+        {
+            if (!Directory.Exists(buildPath))
+            {
+                Directory.CreateDirectory(buildPath);
+                Debug.Log("중앙 집중식 빌드 출력 디렉토리 생성: " + buildPath);
+            }
+            else
+            {
+                Debug.Log("중앙 집중식 빌드 출력 디렉토리 확인 완료: " + buildPath);
+            }
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogError("빌드 출력 디렉토리 생성 실패: " + e.Message);
+            Debug.LogError("경로: " + buildPath);
+            return;
+        }
         
-        Debug.Log($"📁 프로젝트명: {{projectName}} -> 안전한 파일명: {{safeProjectName}}");
-        Debug.Log($"🌐 중앙 집중식 빌드 경로: {{buildPath}}");
+        Debug.Log("📁 프로젝트명: " + projectName + " -> 안전한 파일명: " + safeProjectName);
+        Debug.Log("🌐 중앙 집중식 빌드 경로: " + buildPath);
         
         // 빌드할 씬들 가져오기 (Build Settings에서 활성화된 씬만)
         string[] scenes = GetBuildScenes();
         if (scenes.Length == 0)
-        {{
+        {
             Debug.LogError("빌드할 씬이 없습니다. Build Settings에서 씬을 추가하세요.");
             return;
-        }}
+        }
         
         // WebGL 빌드 옵션 설정 (Player Settings 완전 반영)
         BuildPlayerOptions buildPlayerOptions = new BuildPlayerOptions();
@@ -1156,65 +1170,65 @@ public class AutoWebGLBuildScript
         // WebGL 특수 설정 적용
         ApplyWebGLSettings();
         
-        Debug.Log($"🌐 WebGL 중앙 집중식 빌드 시작");
-        Debug.Log($"📁 중앙 빌드 경로: {{buildPlayerOptions.locationPathName}}");
-        Debug.Log($"📂 프로젝트명: {{safeProjectName}}");
-        Debug.Log($"🎮 제품명: {{PlayerSettings.productName}}");
-        Debug.Log($"🏢 회사명: {{PlayerSettings.companyName}}");
-        Debug.Log($"📋 버전: {{PlayerSettings.bundleVersion}}");
+        Debug.Log("🌐 WebGL 중앙 집중식 빌드 시작");
+        Debug.Log("📁 중앙 빌드 경로: " + buildPlayerOptions.locationPathName);
+        Debug.Log("📂 프로젝트명: " + safeProjectName);
+        Debug.Log("🎮 제품명: " + PlayerSettings.productName);
+        Debug.Log("🏢 회사명: " + PlayerSettings.companyName);
+        Debug.Log("📋 버전: " + PlayerSettings.bundleVersion);
         
         // WebGL 빌드 실행
         var report = BuildPipeline.BuildPlayer(buildPlayerOptions);
         
         // 빌드 결과 확인
         if (report.summary.result == UnityEditor.Build.Reporting.BuildResult.Succeeded)
-        {{
-            Debug.Log($"✅ WebGL 중앙 집중식 빌드 성공!");
-            Debug.Log($"📦 빌드 크기: {{FormatBytes(report.summary.totalSize)}}");
-            Debug.Log($"⏱️ 빌드 시간: {{report.summary.totalTime}}");
-            Debug.Log($"📁 중앙 빌드 경로: {{buildPath}}");
-            Debug.Log($"📂 프로젝트명: {{safeProjectName}}");
-            Debug.Log($"📄 주요 파일: {{safeProjectName}}.data, {{safeProjectName}}.wasm, index.html");
-            Debug.Log($"🌐 중앙 집중식 WebGL 빌드 완료!");
-        }}
+        {
+            Debug.Log("✅ WebGL 중앙 집중식 빌드 성공!");
+            Debug.Log("📦 빌드 크기: " + FormatBytes(report.summary.totalSize));
+            Debug.Log("⏱️ 빌드 시간: " + report.summary.totalTime);
+            Debug.Log("📁 중앙 빌드 경로: " + buildPath);
+            Debug.Log("📂 프로젝트명: " + safeProjectName);
+            Debug.Log("📄 주요 파일: " + safeProjectName + ".data, " + safeProjectName + ".wasm, index.html");
+            Debug.Log("🌐 중앙 집중식 WebGL 빌드 완료!");
+        }
         else
-        {{
-            Debug.LogError($"❌ WebGL 빌드 실패: {{report.summary.result}}");
+        {
+            Debug.LogError("❌ WebGL 빌드 실패: " + report.summary.result);
             if (report.summary.totalErrors > 0)
-            {{
-                Debug.LogError($"에러 수: {{report.summary.totalErrors}}");
-            }}
+            {
+                Debug.LogError("에러 수: " + report.summary.totalErrors);
+            }
             if (report.summary.totalWarnings > 0)
-            {{
-                Debug.LogWarning($"경고 수: {{report.summary.totalWarnings}}");
-            }}
-        }}
+            {
+                Debug.LogWarning("경고 수: " + report.summary.totalWarnings);
+            }
+        }
         
         Debug.Log("=== WebGL Player Settings 반영 빌드 완료 ===");
-    }}
+    }
     
     private static void ConfigureWebGLPlayerSettings()
-    {{
+    {
         Debug.Log("🔧 WebGL Player Settings 이미지 기반 고정 설정 적용 중...");
         
         // 기본 제품 정보 설정 (비어있는 경우에만)
         if (string.IsNullOrEmpty(PlayerSettings.productName))
-        {{
+        {
             PlayerSettings.productName = "Science Experiment Simulation";
             Debug.Log("✅ 제품명 설정: Science Experiment Simulation");
-        }}
+        }
         
         if (string.IsNullOrEmpty(PlayerSettings.companyName))
-        {{
+        {
             PlayerSettings.companyName = "Educational Software";
             Debug.Log("✅ 회사명 설정: Educational Software");
-        }}
+        }
         
         if (string.IsNullOrEmpty(PlayerSettings.bundleVersion))
-        {{
+        {
             PlayerSettings.bundleVersion = "1.0.0";
             Debug.Log("✅ 버전 설정: 1.0.0");
-        }}
+        }
         
         // === 이미지 기반 고정 설정 적용 ===
         
@@ -1264,116 +1278,116 @@ public class AutoWebGLBuildScript
         Debug.Log("✅ WebGL 링커 타겟 설정: WebAssembly (Unity 6 최적화)");
         
         Debug.Log("🔧 WebGL Player Settings 이미지 기반 고정 설정 완료");
-    }}
+    }
     
     private static void LogCurrentPlayerSettings()
-    {{
+    {
         Debug.Log("=== 현재 WebGL Player Settings ===");
-        Debug.Log($"🎮 제품명: {{PlayerSettings.productName}}");
-        Debug.Log($"🏢 회사명: {{PlayerSettings.companyName}}");
-        Debug.Log($"📋 버전: {{PlayerSettings.bundleVersion}}");
+        Debug.Log("🎮 제품명: " + PlayerSettings.productName);
+        Debug.Log("🏢 회사명: " + PlayerSettings.companyName);
+        Debug.Log("📋 버전: " + PlayerSettings.bundleVersion);
         
         // Unity 6 호환성: 아이콘 API 확인 (Unity 버전에 따라 다름)
         try
-        {{
+        {
             // Unity 6에서는 NamedBuildTarget과 IconKind 사용
             var icons = PlayerSettings.GetIcons(NamedBuildTarget.WebGL, IconKind.Application);
-            Debug.Log($"🖼️ 기본 아이콘: {{(icons != null && icons.Length > 0 ? "설정됨" : "없음")}}");
-        }}
+            Debug.Log("🖼️ 기본 아이콘: " + (icons != null && icons.Length > 0 ? "설정됨" : "없음"));
+        }
         catch
-        {{
-            Debug.Log($"🖼️ 기본 아이콘: 확인 불가 (Unity 버전 호환성 문제)");
-        }}
+        {
+            Debug.Log("🖼️ 기본 아이콘: 확인 불가 (Unity 버전 호환성 문제)");
+        }
         
         // WebGL 전용 설정들
-        Debug.Log($"🌐 WebGL 템플릿: {{PlayerSettings.WebGL.template}}");
-        Debug.Log($"💾 WebGL 메모리 크기: {{PlayerSettings.WebGL.memorySize}}MB");
-        Debug.Log($"📦 WebGL 압축 포맷: {{PlayerSettings.WebGL.compressionFormat}}");
-        Debug.Log($"⚠️ WebGL 예외 지원: {{PlayerSettings.WebGL.exceptionSupport}}");
-        Debug.Log($"💽 WebGL 데이터 캐싱: {{PlayerSettings.WebGL.dataCaching}}");
-        Debug.Log($"📂 WebGL 파일명 방식: {{(PlayerSettings.WebGL.nameFilesAsHashes ? "해시" : "프로젝트명")}} 기반");
-        Debug.Log($"🔧 WebGL 링커 타겟: {{PlayerSettings.WebGL.linkerTarget}}");
-        Debug.Log($"🎯 WebGL 최적화: Unity 6에서 자동 관리");
+        Debug.Log("🌐 WebGL 템플릿: " + PlayerSettings.WebGL.template);
+        Debug.Log("💾 WebGL 메모리 크기: " + PlayerSettings.WebGL.memorySize + "MB");
+        Debug.Log("📦 WebGL 압축 포맷: " + PlayerSettings.WebGL.compressionFormat);
+        Debug.Log("⚠️ WebGL 예외 지원: " + PlayerSettings.WebGL.exceptionSupport);
+        Debug.Log("💽 WebGL 데이터 캐싱: " + PlayerSettings.WebGL.dataCaching);
+        Debug.Log("📂 WebGL 파일명 방식: " + (PlayerSettings.WebGL.nameFilesAsHashes ? "해시" : "프로젝트명") + " 기반");
+        Debug.Log("🔧 WebGL 링커 타겟: " + PlayerSettings.WebGL.linkerTarget);
+        Debug.Log("🎯 WebGL 최적화: Unity 6에서 자동 관리");
         Debug.Log("=====================================");
-    }}
+    }
     
     private static BuildOptions GetBuildOptionsFromPlayerSettings()
-    {{
+    {
         BuildOptions options = BuildOptions.None;
         
         // Development Build 설정 확인
         if (EditorUserBuildSettings.development)
-        {{
+        {
             options |= BuildOptions.Development;
             Debug.Log("✅ Development Build 모드 활성화");
-        }}
+        }
         
         // Script Debugging 설정 확인
         if (EditorUserBuildSettings.allowDebugging)
-        {{
+        {
             options |= BuildOptions.AllowDebugging;
             Debug.Log("✅ Script Debugging 활성화");
-        }}
+        }
         
         // Profiler 설정 확인
         if (EditorUserBuildSettings.connectProfiler)
-        {{
+        {
             options |= BuildOptions.ConnectWithProfiler;
             Debug.Log("✅ Profiler 연결 활성화");
-        }}
+        }
         
         // Deep Profiling 설정 확인
         if (EditorUserBuildSettings.buildWithDeepProfilingSupport)
-        {{
+        {
             options |= BuildOptions.EnableDeepProfilingSupport;
             Debug.Log("✅ Deep Profiling 지원 활성화");
-        }}
+        }
         
         // Unity 6에서 autoRunPlayer 제거됨
         // WebGL은 브라우저에서 실행되므로 AutoRunPlayer 옵션 불필요
         Debug.Log("ℹ️ WebGL 빌드는 브라우저에서 수동 실행");
         
         return options;
-    }}
+    }
     
     private static void ApplyWebGLSettings()
-    {{
+    {
         Debug.Log("🌐 WebGL 특수 설정 적용 및 검증 중...");
         
-        Debug.Log($"🌐 WebGL 템플릿 사용: {{PlayerSettings.WebGL.template}}");
-        Debug.Log($"💾 WebGL 메모리 크기: {{PlayerSettings.WebGL.memorySize}}MB");
-        Debug.Log($"📦 WebGL 압축 포맷: {{PlayerSettings.WebGL.compressionFormat}}");
-        Debug.Log($"⚠️ WebGL 예외 지원: {{PlayerSettings.WebGL.exceptionSupport}}");
-        Debug.Log($"💽 WebGL 데이터 캐싱: {{PlayerSettings.WebGL.dataCaching}}");
+        Debug.Log("🌐 WebGL 템플릿 사용: " + PlayerSettings.WebGL.template);
+        Debug.Log("💾 WebGL 메모리 크기: " + PlayerSettings.WebGL.memorySize + "MB");
+        Debug.Log("📦 WebGL 압축 포맷: " + PlayerSettings.WebGL.compressionFormat);
+        Debug.Log("⚠️ WebGL 예외 지원: " + PlayerSettings.WebGL.exceptionSupport);
+        Debug.Log("💽 WebGL 데이터 캐싱: " + PlayerSettings.WebGL.dataCaching);
         
         // WebGL 최적화 설정 확인 및 권장사항
         if (PlayerSettings.WebGL.memorySize < 256)
-        {{
+        {
             Debug.LogWarning("⚠️ WebGL 메모리 크기가 256MB 미만입니다. 과학실험 시뮬레이션에는 512MB 이상 권장합니다.");
-        }}
+        }
         else if (PlayerSettings.WebGL.memorySize >= 512)
-        {{
+        {
             Debug.Log("✅ WebGL 메모리 크기가 적절합니다 (512MB 이상).");
-        }}
+        }
         
         if (string.IsNullOrEmpty(PlayerSettings.WebGL.template) || PlayerSettings.WebGL.template == "APPLICATION:Default")
-        {{
+        {
             Debug.LogWarning("⚠️ WebGL 템플릿이 기본값입니다. 교육용 템플릿 사용을 권장합니다.");
-        }}
+        }
         else
-        {{
-            Debug.Log($"✅ WebGL 템플릿 설정됨: {{PlayerSettings.WebGL.template}}");
-        }}
+        {
+            Debug.Log("✅ WebGL 템플릿 설정됨: " + PlayerSettings.WebGL.template);
+        }
         
         // WebGL 압축 설정 확인
         if (PlayerSettings.WebGL.compressionFormat == WebGLCompressionFormat.Disabled)
-        {{
+        {
             Debug.LogWarning("⚠️ WebGL 압축이 비활성화되어 있습니다. 파일 크기가 클 수 있습니다.");
-        }}
+        }
         else
-        {{
-            Debug.Log($"✅ WebGL 압축 활성화: {{PlayerSettings.WebGL.compressionFormat}}");
-        }}
+        {
+            Debug.Log("✅ WebGL 압축 활성화: " + PlayerSettings.WebGL.compressionFormat);
+        }
         
         // 과학실험 시뮬레이션에 최적화된 설정 권장사항
         Debug.Log("📚 과학실험 시뮬레이션 최적화 권장사항:");
@@ -1381,49 +1395,47 @@ public class AutoWebGLBuildScript
         Debug.Log("  - 압축: Gzip 또는 Brotli");
         Debug.Log("  - 예외 지원: ExplicitlyThrownExceptionsOnly");
         Debug.Log("  - 데이터 캐싱: 활성화");
-    }}
+    }
     
     private static string[] GetBuildScenes()
-    {{
+    {
         // Build Settings에서 활성화된 씬들만 가져오기
         var enabledScenes = new System.Collections.Generic.List<string>();
         
         foreach (var scene in EditorBuildSettings.scenes)
-        {{
+        {
             if (scene.enabled)
-            {{
+            {
                 enabledScenes.Add(scene.path);
-            }}
-        }}
+            }
+        }
         
-        Debug.Log($"📋 빌드할 씬 수: {{enabledScenes.Count}}");
+        Debug.Log("📋 빌드할 씬 수: " + enabledScenes.Count);
         foreach (var scene in enabledScenes)
-        {{
-            Debug.Log($"  - {{scene}}");
-        }}
+        {
+            Debug.Log("  - " + scene);
+        }
         
         return enabledScenes.ToArray();
-    }}
+    }
     
     private static string FormatBytes(ulong bytes)
-    {{
-        string[] sizes = {{ "B", "KB", "MB", "GB", "TB" }};
+    {
+        string[] sizes = { "B", "KB", "MB", "GB", "TB" };
         double len = bytes;
         int order = 0;
         while (len >= 1024 && order < sizes.Length - 1)
-        {{
+        {
             order++;
             len = len / 1024;
-        }}
-        return $"{{len:0.##}} {{sizes[order]}}";
-    }}
-}}
-"""
+        }
+        return len.ToString("0.##") + " " + sizes[order];
+    }
+}
+""")
     
     try:
-        from string import Template
-        template = Template(script_content)
-        formatted_content = template.safe_substitute(output_path_formatted=output_path_formatted)
+        formatted_content = script_template.substitute(output_path=output_path_formatted)
         
         with open(script_path, 'w', encoding='utf-8') as f:
             f.write(formatted_content)
@@ -1450,6 +1462,19 @@ def run_unity_webgl_build(project_path, timeout=BUILD_TIMEOUT):
     project_name = get_project_name_from_path(project_path)
     
     print(f"🌐 Unity WebGL Player Settings 반영 빌드 시작: {project_name}")
+    
+    # 빌드 출력 디렉토리 미리 생성
+    project_build_dir = os.path.join(BUILD_OUTPUT_DIR, project_name)
+    
+    try:
+        if not os.path.exists(project_build_dir):
+            os.makedirs(project_build_dir, exist_ok=True)
+            print(f"빌드 출력 디렉토리 생성: {project_build_dir}")
+        else:
+            print(f"빌드 출력 디렉토리 확인 완료: {project_build_dir}")
+    except Exception as e:
+        print(f"빌드 출력 디렉토리 생성 실패: {e}")
+        return False
     
     # WebGL 전용 빌드 스크립트 생성
     if not create_unity_webgl_build_script(project_path):
@@ -1658,6 +1683,7 @@ def print_usage():
     print("  --parallel       Unity 배치 모드를 병렬로 실행 (빠른 처리, 메모리 사용량 증가)")
     print("  --build-webgl    Unity WebGL 빌드 자동화 (Player Settings 완전 반영)")
     print("  --build-parallel WebGL 빌드를 병렬로 실행 (2개씩 동시 빌드)")
+    print("  --build-only     WebGL 빌드만 실행 (Git 작업 및 패키지 추가 제외)")
     print("  --clean-builds   중앙 집중식 빌드 출력물 정리 (프로젝트별 폴더 삭제)")
     print("  --fix-unity6     Unity 6 deprecated API 자동 수정 (FindObjectOfType 등)")
     print("  --check-unity6   Unity 6 호환성 검사 보고서 생성")
@@ -1695,6 +1721,14 @@ def print_usage():
     print("- 빌드 시간: 프로젝트당 5-15분 (WebGL 최적화 포함)")
     print("- 하나의 폴더에서 모든 프로젝트 빌드 결과 통합 관리")
     print("")
+    print("WebGL 빌드 전용 모드 (--build-only):")
+    print("- Git 작업(커밋, 푸시, 브랜치 변경) 완전 제외")
+    print("- 패키지 추가 작업 제외")
+    print("- 오직 WebGL 빌드만 수행 (순수 빌드 모드)")
+    print("- 기존 프로젝트 상태 그대로 유지하면서 빌드")
+    print("- 빌드 결과만 필요한 경우 최적화된 옵션")
+    print("- --build-parallel과 함께 사용 가능")
+    print("")
     print("SystemManager 메소드 추가 (--add-system-methods):")
     print("- 모든 프로젝트의 SystemManager.cs 파일을 자동 탐색")
     print("- 클래스의 마지막 부분(닫는 중괄호 직전)에 메소드 추가")
@@ -1726,12 +1760,17 @@ def main():
     parallel = "--parallel" in sys.argv
     build_webgl = "--build-webgl" in sys.argv
     build_parallel = "--build-parallel" in sys.argv
+    build_only = "--build-only" in sys.argv
     clean_builds = "--clean-builds" in sys.argv
     fix_unity6 = "--fix-unity6" in sys.argv
     check_unity6 = "--check-unity6" in sys.argv
     add_system_methods = "--add-system-methods" in sys.argv
     
-    if full_auto:
+    if build_only:
+        print("WebGL 빌드만 실행합니다 (Git 작업 및 패키지 추가 제외)...\n")
+        build_webgl = True  # build_only는 build_webgl 포함
+        skip_git = True     # Git 작업 건너뜀
+    elif full_auto:
         print("완전 자동화 모드: 모든 작업 + Unity 배치 모드 실행...\n")
         unity_batch = True  # full_auto는 unity_batch 포함
     elif unity_batch:
@@ -1777,8 +1816,8 @@ def main():
             print("변경사항이 없어 Git 커밋을 생략합니다.")
         return
 
-    # 패키지 추가 (git-only가 아닌 경우에만 실행)
-    if not git_only:
+    # 패키지 추가 (git-only나 build-only가 아닌 경우에만 실행)
+    if not git_only and not build_only:
         print("1. Unity 패키지 추가 작업 시작...")
         for project_dir in project_dirs:
             project_name = get_project_name_from_path(project_dir)
