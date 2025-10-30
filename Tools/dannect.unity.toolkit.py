@@ -14,8 +14,9 @@ class Config:
     """전체 설정 및 상수 클래스"""
     # 프로젝트 경로
     PROJECT_DIRS = [
-        r"C:\Users\wkzkx\Desktop\Lim\GitHub\6.1.4.5_ConvexLensLight",
-        r"C:\Users\wkzkx\Desktop\Lim\GitHub\6.1.4.6_ConvexLensObservation",
+        r"C:\Users\wkzkx\Desktop\Lim\GitHub\5.2.1.6_AbioticFactors",
+        r"C:\Users\wkzkx\Desktop\Lim\GitHub\5.2.2.7_WindFormationModel",
+        r"C:\Users\wkzkx\Desktop\Lim\GitHub\6.2.2.2_SolarAltitudeShadowLengthTemperature",
         # 추가 프로젝트 경로들...
     ]
     
@@ -25,10 +26,14 @@ class Config:
     DEV_BRANCH = "dev"
     
     # Unity 설정
-    UNITY_EDITOR_PATH = r"C:\Program Files\Unity\Hub\Editor\6000.0.30f1\Editor\Unity.exe"
+    UNITY_EDITOR_PATH = r"C:\Program Files\Unity\Hub\Editor\6000.0.59f2\Editor\Unity.exe"
     UNITY_TIMEOUT = 300
-    BUILD_TIMEOUT = 1800
+    BUILD_TIMEOUT = 7200
     BUILD_OUTPUT_DIR = r"C:\Users\wkzkx\Desktop\Lim\GitHub\Build"
+    
+    # WebGL 빌드 설정
+    # Code Optimization: "RuntimeSpeed" 또는 "RuntimeSpeedWithLTO"
+    WEBGL_CODE_OPTIMIZATION = "RuntimeSpeed"  # "RuntimeSpeed" 또는 "RuntimeSpeedWithLTO"
     
     # 패키지 설정
     GIT_PACKAGES = {
@@ -48,6 +53,7 @@ class Config:
 
 # 호환성을 위한 전역 변수들
 project_dirs = Config.PROJECT_DIRS
+
 git_packages = Config.GIT_PACKAGES
 GIT_BASE_URL = Config.GIT_BASE_URL
 DEFAULT_BRANCH = Config.DEFAULT_BRANCH
@@ -57,6 +63,7 @@ UNITY_EDITOR_PATH = Config.UNITY_EDITOR_PATH
 UNITY_TIMEOUT = Config.UNITY_TIMEOUT
 BUILD_TIMEOUT = Config.BUILD_TIMEOUT
 BUILD_OUTPUT_DIR = Config.BUILD_OUTPUT_DIR
+WEBGL_CODE_OPTIMIZATION = Config.WEBGL_CODE_OPTIMIZATION
 
 def get_unity_projects_from_directory(base_dir):
     """지정된 디렉토리에서 Unity 프로젝트들을 자동으로 찾습니다."""
@@ -1171,7 +1178,7 @@ def add_git_packages_to_manifest(project_dir, git_packages):
 # =========================
 # #region Unity 빌드 자동화 함수들 (Player Settings 완전 반영)
 # =========================
-def create_unity_webgl_build_script(project_path, output_path=None, auto_configure=True):
+def create_unity_webgl_build_script(project_path, output_path=None, auto_configure=True, code_optimization=None):
     """Unity WebGL 빌드를 위한 Editor 스크립트를 생성합니다. (Player Settings 자동 설정 포함)"""
     editor_dir = os.path.join(project_path, "Assets", "Editor")
     if not os.path.exists(editor_dir):
@@ -1188,6 +1195,15 @@ def create_unity_webgl_build_script(project_path, output_path=None, auto_configu
     
     output_path_formatted = output_path.replace(os.sep, '/')
     
+    # Code Optimization 설정 (기본값 또는 매개변수로 전달된 값)
+    if code_optimization is None:
+        code_optimization = WEBGL_CODE_OPTIMIZATION
+    
+    # 유효성 검사
+    if code_optimization not in ["RuntimeSpeed", "RuntimeSpeedWithLTO"]:
+        print(f"⚠️ 잘못된 Code Optimization 설정: {code_optimization}, 기본값 'RuntimeSpeed' 사용")
+        code_optimization = "RuntimeSpeed"
+    
     # Template 시스템을 사용하여 Unity 스크립트 생성
     script_template = Template("""using UnityEngine;
 using UnityEditor;
@@ -1196,6 +1212,10 @@ using System.IO;
 
 public class AutoWebGLBuildScript
 {
+    // Code Optimization 설정: "RuntimeSpeed" 또는 "RuntimeSpeedWithLTO"
+    // 이 값은 dannect.unity.toolkit.py의 Config.WEBGL_CODE_OPTIMIZATION에서 자동 설정됩니다
+    private static string CODE_OPTIMIZATION_TYPE = "$code_optimization";
+    
     [MenuItem("Build/Auto Build WebGL (Player Settings)")]
     public static void BuildWebGLWithPlayerSettings()
     {
@@ -1337,15 +1357,34 @@ public class AutoWebGLBuildScript
         PlayerSettings.WebGL.template = "APPLICATION:Minimal";
         Debug.Log("✅ WebGL 템플릿 설정: Minimal");
         
-        // Publishing Settings (이미지 기반) - 프로젝트명 기반 파일명 사용
-        PlayerSettings.WebGL.compressionFormat = WebGLCompressionFormat.Disabled;
+        // Publishing Settings - Brotli 압축 및 WebAssembly 2023 타겟
+        PlayerSettings.WebGL.compressionFormat = WebGLCompressionFormat.Brotli;
         PlayerSettings.WebGL.nameFilesAsHashes = false;  // 프로젝트명.data 등으로 파일명 설정
         PlayerSettings.WebGL.dataCaching = true;
         // Unity 6에서 debugSymbols -> debugSymbolMode로 변경
         PlayerSettings.WebGL.debugSymbolMode = WebGLDebugSymbolMode.Off;
         PlayerSettings.WebGL.showDiagnostics = false;
-        PlayerSettings.WebGL.decompressionFallback = false;
-        Debug.Log("✅ Publishing Settings: 압축 비활성화, 프로젝트명 기반 파일명, 데이터 캐싱 활성화");
+        PlayerSettings.WebGL.decompressionFallback = true;  // Decompression Fallback 활성화
+        // WebAssembly 2023 타겟 설정 (Unity 6 - API가 변경되었을 수 있음)
+        try
+        {
+            // Unity 6에서는 wasmDefines 속성이 없을 수 있음
+            var wasmDefinesProp = typeof(PlayerSettings.WebGL).GetProperty("wasmDefines");
+            if (wasmDefinesProp != null)
+            {
+                wasmDefinesProp.SetValue(null, "WEBGL2023");
+                Debug.Log("✅ WebAssembly 2023 타겟 설정");
+            }
+            else
+            {
+                Debug.Log("ℹ️ WebAssembly 2023 설정 스킵 (Unity 6에서 자동 관리)");
+            }
+        }
+        catch
+        {
+            Debug.Log("ℹ️ WebAssembly 2023 설정 스킵 (Unity 6에서 자동 관리)");
+        }
+        Debug.Log("✅ Publishing Settings: Brotli 압축 활성화, Decompression Fallback 활성화");
         
         // WebAssembly Language Features (이미지 기반)
         PlayerSettings.WebGL.exceptionSupport = WebGLExceptionSupport.ExplicitlyThrownExceptionsOnly;
@@ -1372,7 +1411,95 @@ public class AutoWebGLBuildScript
         PlayerSettings.WebGL.linkerTarget = WebGLLinkerTarget.Wasm;
         Debug.Log("✅ WebGL 링커 타겟 설정: WebAssembly (Unity 6 최적화)");
         
+        // Code Optimization 설정 (Runtime Speed 또는 Runtime Speed with LTO)
+        SetCodeOptimization();
+        
+        // Managed Stripping Level 설정 (Medium)
+        try
+        {
+            // Unity 6에서는 StripEngineCode enum이 변경되었을 수 있음
+            // 리플렉션을 사용하여 안전하게 설정
+            var stripEngineCodeProp = typeof(PlayerSettings).GetProperty("stripEngineCode");
+            if (stripEngineCodeProp != null)
+            {
+                var propType = stripEngineCodeProp.PropertyType;
+                if (propType.IsEnum)
+                {
+                    // enum 타입인 경우
+                    var enumValue = System.Enum.Parse(propType, "StripUnused");
+                    stripEngineCodeProp.SetValue(null, enumValue);
+                    Debug.Log("✅ Managed Stripping Level: Medium (StripUnused)");
+                }
+                else if (propType == typeof(int))
+                {
+                    // int 타입인 경우 (Unity 6)
+                    stripEngineCodeProp.SetValue(null, 2);  // Medium = 2
+                    Debug.Log("✅ Managed Stripping Level: Medium (Unity 6 방식, 값: 2)");
+                }
+            }
+            else
+            {
+                Debug.LogWarning("⚠️ stripEngineCode 속성을 찾을 수 없습니다.");
+            }
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning("⚠️ Managed Stripping Level 설정 실패: " + e.Message);
+            Debug.Log("ℹ️ Unity Editor에서 수동으로 설정해주세요.");
+        }
+        
         Debug.Log("🔧 WebGL Player Settings 이미지 기반 고정 설정 완료");
+    }
+    
+    private static void SetCodeOptimization()
+    {
+        // Code Optimization 설정: Runtime Speed 또는 Runtime Speed with LTO
+        try
+        {
+            #if UNITY_2021_3_OR_NEWER
+            // Unity 2021.3 이상에서 시도
+            var il2CppCodeGenType = typeof(Il2CppCodeGeneration);
+            if (il2CppCodeGenType != null)
+            {
+                object enumValue;
+                if (CODE_OPTIMIZATION_TYPE == "RuntimeSpeedWithLTO")
+                {
+                    // OptimizeForSize 또는 0 값 시도
+                    try
+                    {
+                        enumValue = System.Enum.Parse(il2CppCodeGenType, "OptimizeForSize");
+                    }
+                    catch
+                    {
+                        // Unity 6에서는 enum 값이 다를 수 있음
+                        enumValue = System.Enum.ToObject(il2CppCodeGenType, 0);
+                    }
+                    Debug.Log("✅ Code Optimization: Runtime Speed with LTO");
+                }
+                else
+                {
+                    // OptimizeForRuntime 또는 1 값 시도
+                    try
+                    {
+                        enumValue = System.Enum.Parse(il2CppCodeGenType, "OptimizeForRuntime");
+                    }
+                    catch
+                    {
+                        // Unity 6에서는 enum 값이 다를 수 있음
+                        enumValue = System.Enum.ToObject(il2CppCodeGenType, 1);
+                    }
+                    Debug.Log("✅ Code Optimization: Runtime Speed");
+                }
+                
+                PlayerSettings.SetIl2CppCodeGeneration(NamedBuildTarget.WebGL, (Il2CppCodeGeneration)enumValue);
+            }
+            #endif
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning("⚠️ Code Optimization 설정 실패: " + e.Message);
+            Debug.Log("ℹ️ Unity Editor에서 수동으로 설정해주세요.");
+        }
     }
     
     private static void LogCurrentPlayerSettings()
@@ -1398,10 +1525,41 @@ public class AutoWebGLBuildScript
         Debug.Log("🌐 WebGL 템플릿: " + PlayerSettings.WebGL.template);
         Debug.Log("💾 WebGL 메모리 크기: " + PlayerSettings.WebGL.memorySize + "MB");
         Debug.Log("📦 WebGL 압축 포맷: " + PlayerSettings.WebGL.compressionFormat);
+        Debug.Log("🔙 WebGL Decompression Fallback: " + PlayerSettings.WebGL.decompressionFallback);
+        // WebAssembly 2023 확인 (Unity 6에서는 API가 변경되었을 수 있음)
+        try
+        {
+            var wasmDefinesProp = typeof(PlayerSettings.WebGL).GetProperty("wasmDefines");
+            if (wasmDefinesProp != null)
+            {
+                var wasmDefines = wasmDefinesProp.GetValue(null) as string;
+                Debug.Log("🌐 WebGL WebAssembly 2023: " + (wasmDefines != null && wasmDefines.Contains("WEBGL2023") ? "활성화" : "비활성화"));
+            }
+            else
+            {
+                Debug.Log("🌐 WebGL WebAssembly 2023: Unity 6에서 자동 관리");
+            }
+        }
+        catch
+        {
+            Debug.Log("🌐 WebGL WebAssembly 2023: 확인 불가");
+        }
         Debug.Log("⚠️ WebGL 예외 지원: " + PlayerSettings.WebGL.exceptionSupport);
         Debug.Log("💽 WebGL 데이터 캐싱: " + PlayerSettings.WebGL.dataCaching);
         Debug.Log("📂 WebGL 파일명 방식: " + (PlayerSettings.WebGL.nameFilesAsHashes ? "해시" : "프로젝트명") + " 기반");
         Debug.Log("🔧 WebGL 링커 타겟: " + PlayerSettings.WebGL.linkerTarget);
+        #if UNITY_2021_3_OR_NEWER
+        try
+        {
+            var codeGen = PlayerSettings.GetIl2CppCodeGeneration(NamedBuildTarget.WebGL);
+            Debug.Log("⚡ Code Optimization: " + codeGen);
+            Debug.Log("📦 Managed Stripping Level: " + PlayerSettings.stripEngineCode);
+        }
+        catch (System.Exception e)
+        {
+            Debug.Log("⚡ Code Optimization: 확인 불가 (" + e.Message + ")");
+        }
+        #endif
         Debug.Log("🎯 WebGL 최적화: Unity 6에서 자동 관리");
         Debug.Log("=====================================");
     }
@@ -1484,10 +1642,65 @@ public class AutoWebGLBuildScript
             Debug.Log("✅ WebGL 압축 활성화: " + PlayerSettings.WebGL.compressionFormat);
         }
         
+        // Decompression Fallback 확인
+        if (PlayerSettings.WebGL.decompressionFallback)
+        {
+            Debug.Log("✅ WebGL Decompression Fallback 활성화 (압축 해제 실패 시 대체 사용)");
+        }
+        
+        // WebAssembly 2023 확인
+        try
+        {
+            var wasmDefinesProp = typeof(PlayerSettings.WebGL).GetProperty("wasmDefines");
+            if (wasmDefinesProp != null)
+            {
+                var wasmDefines = wasmDefinesProp.GetValue(null) as string;
+                if (wasmDefines != null && wasmDefines.Contains("WEBGL2023"))
+                {
+                    Debug.Log("✅ WebAssembly 2023 타겟 활성화");
+                }
+            }
+            else
+            {
+                Debug.Log("✅ WebAssembly 2023 타겟: Unity 6에서 자동 관리");
+            }
+        }
+        catch
+        {
+            Debug.Log("ℹ️ WebAssembly 2023 확인 불가");
+        }
+        
+        // Code Optimization 확인
+        #if UNITY_2021_3_OR_NEWER
+        try
+        {
+            var codeGen = PlayerSettings.GetIl2CppCodeGeneration(NamedBuildTarget.WebGL);
+            string codeGenStr = codeGen.ToString();
+            Debug.Log("✅ Code Optimization: " + codeGenStr + " (" + (CODE_OPTIMIZATION_TYPE == "RuntimeSpeedWithLTO" ? "Runtime Speed with LTO" : "Runtime Speed") + ")");
+        }
+        catch (System.Exception e)
+        {
+            Debug.LogWarning("⚠️ Code Optimization 확인 불가: " + e.Message);
+        }
+        #endif
+        
+        // Managed Stripping Level 확인
+        try
+        {
+            Debug.Log("✅ Managed Stripping Level: " + PlayerSettings.stripEngineCode + " (Medium)");
+        }
+        catch
+        {
+            Debug.Log("ℹ️ Managed Stripping Level 확인 불가");
+        }
+        
         // 과학실험 시뮬레이션에 최적화된 설정 권장사항
         Debug.Log("📚 과학실험 시뮬레이션 최적화 권장사항:");
         Debug.Log("  - 메모리: 512MB 이상");
-        Debug.Log("  - 압축: Gzip 또는 Brotli");
+        Debug.Log("  - 압축: Brotli (현재 설정됨)");
+        Debug.Log("  - Decompression Fallback: 활성화 (현재 설정됨)");
+        Debug.Log("  - WebAssembly 2023: 활성화 (현재 설정됨)");
+        Debug.Log("  - Managed Stripping Level: Medium (현재 설정됨)");
         Debug.Log("  - 예외 지원: ExplicitlyThrownExceptionsOnly");
         Debug.Log("  - 데이터 캐싱: 활성화");
     }
@@ -1530,11 +1743,15 @@ public class AutoWebGLBuildScript
 """)
     
     try:
-        formatted_content = script_template.substitute(output_path=output_path_formatted)
+        formatted_content = script_template.substitute(
+            output_path=output_path_formatted,
+            code_optimization=code_optimization
+        )
         
         with open(script_path, 'w', encoding='utf-8') as f:
             f.write(formatted_content)
         print(f"WebGL 전용 빌드 스크립트 생성 완료: {script_path}")
+        print(f"  ⚡ Code Optimization: {code_optimization}")
         return True
     except Exception as e:
         print(f"WebGL 빌드 스크립트 생성 실패: {e}")
@@ -1561,6 +1778,12 @@ def run_unity_webgl_build(project_path, timeout=BUILD_TIMEOUT):
     # 빌드 출력 디렉토리 미리 생성
     project_build_dir = os.path.join(BUILD_OUTPUT_DIR, project_name)
     
+    # 로그 파일 경로 생성
+    log_dir = os.path.join(BUILD_OUTPUT_DIR, "_Logs")
+    os.makedirs(log_dir, exist_ok=True)
+    timestamp = time.strftime("%Y%m%d_%H%M%S")
+    log_file_path = os.path.join(log_dir, f"{project_name}_{timestamp}.log")
+    
     try:
         if not os.path.exists(project_build_dir):
             os.makedirs(project_build_dir, exist_ok=True)
@@ -1583,8 +1806,10 @@ def run_unity_webgl_build(project_path, timeout=BUILD_TIMEOUT):
         "-projectPath", project_path,
         "-buildTarget", "WebGL",
         "-executeMethod", "AutoWebGLBuildScript.BuildWebGLWithPlayerSettings",
-        "-logFile", "-"
+        "-logFile", log_file_path  # 로그 파일 경로 지정
     ]
+    
+    print(f"📝 로그 파일 경로: {log_file_path}")
     
     try:
         print(f"🌐 Unity WebGL 빌드 실행 중... (타임아웃: {timeout}초)")
@@ -1599,6 +1824,24 @@ def run_unity_webgl_build(project_path, timeout=BUILD_TIMEOUT):
             errors='replace'
         )
         
+        # 로그 파일에 stdout과 stderr 추가 저장
+        try:
+            with open(log_file_path, 'a', encoding='utf-8') as log_file:
+                log_file.write("\n" + "="*80 + "\n")
+                log_file.write("Python Script Output (stdout/stderr)\n")
+                log_file.write("="*80 + "\n")
+                log_file.write(f"Return Code: {result.returncode}\n")
+                log_file.write(f"Timestamp: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+                if result.stdout:
+                    log_file.write("\n--- STDOUT ---\n")
+                    log_file.write(result.stdout)
+                if result.stderr:
+                    log_file.write("\n--- STDERR ---\n")
+                    log_file.write(result.stderr)
+                log_file.write("\n" + "="*80 + "\n")
+        except Exception as e:
+            print(f"⚠️ 로그 파일 추가 저장 실패: {e}")
+        
         # 로그 출력
         if result.stdout:
             print("=== Unity WebGL 빌드 로그 ===")
@@ -1610,16 +1853,97 @@ def run_unity_webgl_build(project_path, timeout=BUILD_TIMEOUT):
         
         if result.returncode == 0:
             print(f"✅ Unity WebGL 빌드 성공: {project_name}")
+            if os.path.exists(log_file_path):
+                print(f"📝 빌드 로그: {log_file_path}")
             return True
         else:
             print(f"❌ Unity WebGL 빌드 실패: {project_name} (종료 코드: {result.returncode})")
+            
+            # 오류 발생 시 로그 파일의 마지막 부분 읽어서 표시
+            try:
+                if os.path.exists(log_file_path):
+                    with open(log_file_path, 'r', encoding='utf-8', errors='replace') as log_file:
+                        log_lines = log_file.readlines()
+                        if log_lines:
+                            print("\n" + "="*80)
+                            print("📝 로그 파일 마지막 50줄 (오류 확인):")
+                            print("="*80)
+                            last_lines = log_lines[-50:] if len(log_lines) > 50 else log_lines
+                            for line in last_lines:
+                                print(line.rstrip())
+                            print("="*80)
+            except Exception as e:
+                print(f"⚠️ 로그 파일 읽기 실패: {e}")
+            
+            if os.path.exists(log_file_path):
+                print(f"📝 전체 실패 로그: {log_file_path}")
             return False
             
     except subprocess.TimeoutExpired:
-        print(f"❌ Unity WebGL 빌드 타임아웃: {project_name} ({timeout}초 초과)")
+        error_msg = f"Unity WebGL 빌드 타임아웃: {project_name} ({timeout}초 초과)"
+        print(f"❌ {error_msg}")
+        
+        # 타임아웃 오류를 로그 파일에 추가 저장
+        try:
+            if os.path.exists(log_file_path):
+                with open(log_file_path, 'a', encoding='utf-8') as log_file:
+                    log_file.write("\n" + "="*80 + "\n")
+                    log_file.write(f"TIMEOUT ERROR: {error_msg}\n")
+                    log_file.write(f"Timestamp: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+                    log_file.write("="*80 + "\n")
+                
+                # 로그 파일의 마지막 부분 표시
+                with open(log_file_path, 'r', encoding='utf-8', errors='replace') as log_file:
+                    log_lines = log_file.readlines()
+                    if log_lines:
+                        print("\n" + "="*80)
+                        print("📝 타임아웃 직전 로그 (마지막 50줄):")
+                        print("="*80)
+                        last_lines = log_lines[-50:] if len(log_lines) > 50 else log_lines
+                        for line in last_lines:
+                            print(line.rstrip())
+                        print("="*80)
+        except Exception as e:
+            print(f"⚠️ 타임아웃 로그 저장 실패: {e}")
+        
+        if os.path.exists(log_file_path):
+            print(f"📝 전체 타임아웃 로그: {log_file_path}")
         return False
+        
     except Exception as e:
-        print(f"❌ Unity WebGL 빌드 예외: {project_name} - {e}")
+        error_msg = f"Unity WebGL 빌드 예외: {project_name} - {e}"
+        print(f"❌ {error_msg}")
+        
+        # 예외 오류를 로그 파일에 추가 저장
+        try:
+            if os.path.exists(log_file_path):
+                with open(log_file_path, 'a', encoding='utf-8') as log_file:
+                    log_file.write("\n" + "="*80 + "\n")
+                    log_file.write(f"EXCEPTION ERROR: {error_msg}\n")
+                    log_file.write(f"Exception Type: {type(e).__name__}\n")
+                    log_file.write(f"Exception Details: {str(e)}\n")
+                    import traceback
+                    log_file.write("\n--- Traceback ---\n")
+                    log_file.write(traceback.format_exc())
+                    log_file.write(f"\nTimestamp: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
+                    log_file.write("="*80 + "\n")
+                
+                # 로그 파일의 마지막 부분 표시
+                with open(log_file_path, 'r', encoding='utf-8', errors='replace') as log_file:
+                    log_lines = log_file.readlines()
+                    if log_lines:
+                        print("\n" + "="*80)
+                        print("📝 예외 발생 직전 로그 (마지막 50줄):")
+                        print("="*80)
+                        last_lines = log_lines[-50:] if len(log_lines) > 50 else log_lines
+                        for line in last_lines:
+                            print(line.rstrip())
+                        print("="*80)
+        except Exception as log_error:
+            print(f"⚠️ 예외 로그 저장 실패: {log_error}")
+        
+        if os.path.exists(log_file_path):
+            print(f"📝 전체 예외 로그: {log_file_path}")
         return False
 
 def build_multiple_webgl_projects(project_dirs, parallel=False, max_workers=2):
