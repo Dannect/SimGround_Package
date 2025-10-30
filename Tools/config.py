@@ -11,6 +11,7 @@ class Config:
         r"C:\Users\wkzkx\Desktop\Lim\GitHub\5.2.1.6_AbioticFactors",
         r"C:\Users\wkzkx\Desktop\Lim\GitHub\5.2.2.7_WindFormationModel",
         r"C:\Users\wkzkx\Desktop\Lim\GitHub\6.2.2.2_SolarAltitudeShadowLengthTemperature",
+        r"C:\Users\wkzkx\Desktop\Lim\GitHub\3.2.2.2_LandSeaComparison",
         # 추가 프로젝트 경로들...
     ]
     
@@ -33,7 +34,7 @@ class Config:
     #   - "RuntimeSpeedLTO": 성능 최적화 + LTO (권장, 최고 성능)
     #   - "DiskSize": 크기 최적화
     #   - "DiskSizeLTO": 크기 최적화 + LTO (최소 크기)
-    WEBGL_CODE_OPTIMIZATION = "RuntimeSpeed"
+    WEBGL_CODE_OPTIMIZATION = "RuntimeSpeedLTO"
     
     # 패키지 설정
     GIT_PACKAGES = {

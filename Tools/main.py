@@ -32,7 +32,8 @@ def print_usage():
     print("  --unity-batch    Unity 배치 모드로 Editor 스크립트 실행 (40개 프로젝트 자동화)")
     print("  --parallel       Unity 배치 모드를 병렬로 실행 (빠른 처리, 메모리 사용량 증가)")
     print("  --build-webgl    Unity WebGL 빌드 자동화 (Player Settings 완전 반영)")
-    print("  --build-parallel WebGL 빌드를 병렬로 실행 (2개씩 동시 빌드)")
+    print("  --build-parallel WebGL 빌드를 병렬로 실행 (기본: 4개씩 동시 빌드)")
+    print("  --max-workers N  병렬 빌드 작업자 수 지정 (기본: 4, 권장: 3-5)")
     print("  --build-only     WebGL 빌드만 실행 (Git 작업 및 패키지 추가 제외)")
     print("  --clean-builds   중앙 집중식 빌드 출력물 정리 (프로젝트별 폴더 삭제)")
 
@@ -64,7 +65,8 @@ def print_usage():
     print(f"- Code Optimization: {Config.WEBGL_CODE_OPTIMIZATION}")
     print("  (옵션: BuildTimes, RuntimeSpeed, RuntimeSpeedLTO, DiskSize, DiskSizeLTO)")
     print(f"- 중앙 빌드 출력: {BUILD_OUTPUT_DIR}\\프로젝트명\\ 폴더")
-    print("- --build-parallel로 병렬 빌드 가능 (2개씩 동시 빌드)")
+    print("- --build-parallel로 병렬 빌드 가능 (기본: 4개씩 동시 빌드)")
+    print("- --max-workers N으로 병렬 작업자 수 조절 가능 (권장: 3-5)")
     print("- 빌드 시간: 프로젝트당 5-15분 (WebGL 최적화 포함)")
     print("- 하나의 폴더에서 모든 프로젝트 빌드 결과 통합 관리")
     print("")
@@ -128,6 +130,22 @@ def main():
 
     add_system_methods = "--add-system-methods" in sys.argv
     add_hello_world = "--add-hello-world" in sys.argv
+    
+    # max_workers 파싱 (기본값: 4)
+    max_workers = 4
+    for i, arg in enumerate(sys.argv):
+        if arg == "--max-workers" and i + 1 < len(sys.argv):
+            try:
+                max_workers = int(sys.argv[i + 1])
+                if max_workers < 1:
+                    print("⚠️ max_workers는 1 이상이어야 합니다. 기본값 4 사용")
+                    max_workers = 4
+                elif max_workers > 8:
+                    print("⚠️ max_workers가 8을 초과하면 시스템 리소스 부족 위험. 8로 제한")
+                    max_workers = 8
+            except ValueError:
+                print("⚠️ max_workers 값이 유효하지 않습니다. 기본값 4 사용")
+                max_workers = 4
     
     # 옵션에 따른 모드 설정
     if build_only:
@@ -263,6 +281,12 @@ def main():
         print(f"\n🌐 Unity WebGL 프로젝트 빌드 시작...")
         print(f"📊 총 {len(project_dirs)}개 프로젝트 빌드 예정")
         
+        # 병렬 빌드 설정 표시
+        if build_parallel:
+            print(f"⚡ 병렬 빌드 모드: {max_workers}개 동시 실행")
+        else:
+            print(f"📋 순차 빌드 모드")
+        
         # Code Optimization 설정 표시
         if WEBGL_CODE_OPTIMIZATION == "RuntimeSpeedLTO":
             print(f"⚡ Code Optimization: Runtime Speed with LTO (최고 성능, LTO 적용)")
@@ -281,7 +305,7 @@ def main():
         build_results = build_multiple_webgl_projects(
             project_dirs, 
             parallel=build_parallel,
-            max_workers=2 if build_parallel else 1
+            max_workers=max_workers if build_parallel else 1
         )
         
         # 빌드 결과 요약

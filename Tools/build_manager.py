@@ -9,6 +9,7 @@ import subprocess
 import time
 import shutil
 import traceback
+import threading
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from string import Template
 from config import Config
@@ -500,6 +501,58 @@ public class AutoWebGLBuildScript
         print(f"WebGL 빌드 스크립트 생성 실패: {e}")
         return False
 
+def monitor_build_progress(log_file_path, project_name, stop_event, start_time):
+    """로그 파일을 주기적으로 모니터링하여 빌드 진행 상황을 표시합니다."""
+    last_position = 0
+    check_interval = 60  # 1분마다 체크
+    
+    # 주요 진행 단계 키워드
+    progress_keywords = [
+        "Compiling scripts",
+        "Building Library",
+        "Building player",
+        "Building WebGL Player",
+        "IL2CPP",
+        "Building il2cpp",
+        "Generating code",
+        "Compiling C++ code",
+        "Building WASM",
+        "Emscripten"
+    ]
+    
+    while not stop_event.is_set():
+        try:
+            if os.path.exists(log_file_path):
+                elapsed = int(time.time() - start_time)
+                minutes = elapsed // 60
+                seconds = elapsed % 60
+                
+                # 파일 끝부분만 읽기 (성능 최적화)
+                with open(log_file_path, 'r', encoding='utf-8', errors='replace') as f:
+                    f.seek(last_position)
+                    new_lines = f.readlines()
+                    last_position = f.tell()
+                    
+                    # 주요 진행 단계 찾기
+                    progress_found = False
+                    for line in new_lines:
+                        for keyword in progress_keywords:
+                            if keyword in line:
+                                print(f"  ⏳ [{project_name}] {minutes}분 {seconds}초 경과 - {keyword}")
+                                progress_found = True
+                                break
+                        if progress_found:
+                            break
+                    
+                    # 진행 단계가 없으면 단순 상태 메시지
+                    if not progress_found and new_lines:
+                        print(f"  ⏳ [{project_name}] {minutes}분 {seconds}초 경과 - 빌드 진행 중...")
+                
+            time.sleep(check_interval)
+        except Exception as e:
+            # 오류가 발생해도 모니터링 중단하지 않음
+            pass
+
 def run_unity_webgl_build(project_path, timeout=BUILD_TIMEOUT):
     """Unity CLI를 사용하여 WebGL 빌드를 실행합니다. (Player Settings 완전 반영)"""
     unity_path = UNITY_EDITOR_PATH
@@ -555,47 +608,34 @@ def run_unity_webgl_build(project_path, timeout=BUILD_TIMEOUT):
         "-logFile", log_file_path  # 로그 파일 경로 지정
     ]
     
-    print(f"📝 로그 파일 경로: {log_file_path}")
+    # print(f"📝 로그 파일 경로: {log_file_path}")
+    
+    # 진행도 모니터링 스레드 준비
+    stop_monitor = threading.Event()
+    monitor_thread = threading.Thread(
+        target=monitor_build_progress,
+        args=(log_file_path, project_name, stop_monitor, build_start_time),
+        daemon=True
+    )
     
     try:
         print(f"🌐 Unity WebGL 빌드 실행 중... (타임아웃: {timeout}초)")
-        print(f"명령어: {' '.join(cmd)}")
+        # print(f"명령어: {' '.join(cmd)}")
         
+        # 진행도 모니터링 시작
+        monitor_thread.start()
+        
+        # Unity는 -logFile로 로그를 직접 파일에 쓰므로 stdout/stderr 캡처 불필요
+        # capture_output=True는 거대한 로그를 메모리 버퍼링하여 심각한 성능 저하 유발
         result = subprocess.run(
             cmd,
             timeout=timeout,
-            capture_output=True,
-            text=True,
-            encoding='utf-8',
-            errors='replace'
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL
         )
         
-        # 로그 파일에 stdout과 stderr 추가 저장
-        try:
-            with open(log_file_path, 'a', encoding='utf-8') as log_file:
-                log_file.write("\n" + "="*80 + "\n")
-                log_file.write("Python Script Output (stdout/stderr)\n")
-                log_file.write("="*80 + "\n")
-                log_file.write(f"Return Code: {result.returncode}\n")
-                log_file.write(f"Timestamp: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
-                if result.stdout:
-                    log_file.write("\n--- STDOUT ---\n")
-                    log_file.write(result.stdout)
-                if result.stderr:
-                    log_file.write("\n--- STDERR ---\n")
-                    log_file.write(result.stderr)
-                log_file.write("\n" + "="*80 + "\n")
-        except Exception as e:
-            print(f"⚠️ 로그 파일 추가 저장 실패: {e}")
-        
-        # 로그 출력
-        if result.stdout:
-            print("=== Unity WebGL 빌드 로그 ===")
-            print(result.stdout)
-        
-        if result.stderr:
-            print("=== Unity WebGL 빌드 에러 ===")
-            print(result.stderr)
+        # 빌드 완료, 모니터링 중지
+        stop_monitor.set()
         
         # 빌드 종료 시간 기록
         build_end_time = time.time()
@@ -608,8 +648,8 @@ def run_unity_webgl_build(project_path, timeout=BUILD_TIMEOUT):
         
         if result.returncode == 0:
             print(f"✅ Unity WebGL 빌드 성공: {project_name} (소요 시간: {time_str})")
-            if os.path.exists(log_file_path):
-                print(f"📝 빌드 로그: {log_file_path}")
+            # if os.path.exists(log_file_path):
+            #     print(f"📝 빌드 로그: {log_file_path}")
             return True, elapsed_time
         else:
             print(f"❌ Unity WebGL 빌드 실패: {project_name} (종료 코드: {result.returncode}, 소요 시간: {time_str})")
@@ -630,11 +670,14 @@ def run_unity_webgl_build(project_path, timeout=BUILD_TIMEOUT):
             except Exception as e:
                 print(f"⚠️ 로그 파일 읽기 실패: {e}")
             
-            if os.path.exists(log_file_path):
-                print(f"📝 전체 실패 로그: {log_file_path}")
+            # if os.path.exists(log_file_path):
+            #     print(f"📝 전체 실패 로그: {log_file_path}")
             return False, elapsed_time
             
     except subprocess.TimeoutExpired:
+        # 모니터링 중지
+        stop_monitor.set()
+        
         # 빌드 종료 시간 기록
         build_end_time = time.time()
         elapsed_time = build_end_time - build_start_time
@@ -670,11 +713,14 @@ def run_unity_webgl_build(project_path, timeout=BUILD_TIMEOUT):
         except Exception as e:
             print(f"⚠️ 타임아웃 로그 저장 실패: {e}")
         
-        if os.path.exists(log_file_path):
-            print(f"📝 전체 타임아웃 로그: {log_file_path}")
+        # if os.path.exists(log_file_path):
+        #     print(f"📝 전체 타임아웃 로그: {log_file_path}")
         return False, elapsed_time
         
     except Exception as e:
+        # 모니터링 중지
+        stop_monitor.set()
+        
         # 빌드 종료 시간 기록
         build_end_time = time.time()
         elapsed_time = build_end_time - build_start_time
@@ -715,8 +761,8 @@ def run_unity_webgl_build(project_path, timeout=BUILD_TIMEOUT):
         except Exception as log_error:
             print(f"⚠️ 예외 로그 저장 실패: {log_error}")
         
-        if os.path.exists(log_file_path):
-            print(f"📝 전체 예외 로그: {log_file_path}")
+        # if os.path.exists(log_file_path):
+        #     print(f"📝 전체 예외 로그: {log_file_path}")
         return False, elapsed_time
 
 def build_multiple_webgl_projects(project_dirs, parallel=False, max_workers=2):
@@ -730,8 +776,12 @@ def build_multiple_webgl_projects(project_dirs, parallel=False, max_workers=2):
 
 def build_multiple_webgl_projects_sequential(project_dirs):
     """여러 Unity 프로젝트를 WebGL로 순차적으로 빌드합니다."""
+    total_projects = len(project_dirs)
+    print(f"📊 총 {total_projects}개 프로젝트 빌드 예정")
+    
     success_count = 0
     fail_count = 0
+    completed_count = 0
     results = []
     total_start_time = time.time()
     
@@ -739,20 +789,29 @@ def build_multiple_webgl_projects_sequential(project_dirs):
         if not os.path.exists(project_dir):
             print(f"❌ 프로젝트 경로가 존재하지 않습니다: {project_dir}")
             fail_count += 1
+            completed_count += 1
             project_name = get_project_name_from_path(project_dir)
             results.append((project_name, False, 0.0))
+            progress_percent = int((completed_count / total_projects) * 100)
+            print(f"📊 전체 진행도: {completed_count}/{total_projects} 완료 ({progress_percent}%)")
             continue
         
         project_name = get_project_name_from_path(project_dir)
         print(f"\n--- {project_name} WebGL 빌드 시작 ---")
         
         success, elapsed_time = run_unity_webgl_build(project_dir)
+        completed_count += 1
+        progress_percent = int((completed_count / total_projects) * 100)
+        
         if success:
             success_count += 1
             results.append((project_name, True, elapsed_time))
         else:
             fail_count += 1
             results.append((project_name, False, elapsed_time))
+        
+        # 전체 진행도 표시
+        print(f"📊 전체 진행도: {completed_count}/{total_projects} 완료 ({progress_percent}%)")
     
     total_end_time = time.time()
     total_elapsed_time = total_end_time - total_start_time
@@ -770,10 +829,13 @@ def build_multiple_webgl_projects_sequential(project_dirs):
 
 def build_multiple_webgl_projects_parallel(project_dirs, max_workers=2):
     """여러 Unity 프로젝트를 WebGL로 병렬로 빌드합니다."""
+    total_projects = len([d for d in project_dirs if os.path.exists(d)])
     print(f"🌐 WebGL 병렬 빌드 시작 (최대 {max_workers}개 동시 실행)")
+    print(f"📊 총 {total_projects}개 프로젝트 빌드 예정")
     
     success_count = 0
     fail_count = 0
+    completed_count = 0
     results = []
     total_start_time = time.time()
     
@@ -791,6 +853,9 @@ def build_multiple_webgl_projects_parallel(project_dirs, max_workers=2):
             
             try:
                 success, elapsed_time = future.result()
+                completed_count += 1
+                progress_percent = int((completed_count / total_projects) * 100)
+                
                 if success:
                     success_count += 1
                     minutes = int(elapsed_time // 60)
@@ -803,10 +868,17 @@ def build_multiple_webgl_projects_parallel(project_dirs, max_workers=2):
                     seconds = int(elapsed_time % 60)
                     time_str = f"{minutes}분 {seconds}초" if minutes > 0 else f"{seconds}초"
                     print(f"❌ {project_name} WebGL 병렬 빌드 실패 (소요 시간: {time_str})")
+                
+                # 전체 진행도 표시
+                print(f"📊 전체 진행도: {completed_count}/{total_projects} 완료 ({progress_percent}%)")
+                
                 results.append((project_name, success, elapsed_time))
             except Exception as e:
                 fail_count += 1
+                completed_count += 1
+                progress_percent = int((completed_count / total_projects) * 100)
                 print(f"❌ {project_name} WebGL 병렬 빌드 예외: {e}")
+                print(f"📊 전체 진행도: {completed_count}/{total_projects} 완료 ({progress_percent}%)")
                 results.append((project_name, False, 0.0))
     
     total_end_time = time.time()
