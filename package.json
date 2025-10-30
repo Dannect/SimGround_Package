@@ -2,8 +2,8 @@
   "name": "com.dannect.toolkit",
   "version": "2.0.0",
   "displayName": "Dannect Toolkit",
-  "description": "유니티 프로젝트에서 공용으로 사용하는 프리팹, 에디터 스크립트 패키지",
-  "unity": "6000.0.59f2",
+  "description": "유니티 프로젝트에서 공용으로 사용하는 에디터 스크립트 패키지",
+  "unity": "6000.0",
   "author": {
     "name": "Lim-jooyoung",
     "email": "ljy1209@dannect.com"
