@@ -501,6 +501,85 @@ public class AutoWebGLBuildScript
         print(f"WebGL 빌드 스크립트 생성 실패: {e}")
         return False
 
+def validate_build_output(build_dir, project_name):
+    """빌드 출력 폴더를 검증하여 필수 파일들이 생성되었는지 확인합니다.
+    
+    Args:
+        build_dir: 빌드 출력 디렉토리 경로
+        project_name: 프로젝트 이름
+    
+    Returns:
+        dict: {
+            "valid": bool (빌드 파일이 유효한지),
+            "found_files": list (발견된 필수 파일 목록),
+            "missing_files": list (누락된 필수 파일 목록)
+        }
+    """
+    result = {
+        "valid": False,
+        "found_files": [],
+        "missing_files": []
+    }
+    
+    if not os.path.exists(build_dir):
+        result["missing_files"].append("빌드 디렉토리 자체가 존재하지 않음")
+        return result
+    
+    # Unity WebGL 빌드 필수 파일들
+    required_files = {
+        "index.html": "index.html",
+        "Build folder": "Build"
+    }
+    
+    # 기본 필수 파일 확인
+    for file_type, file_name in required_files.items():
+        file_path = os.path.join(build_dir, file_name)
+        if os.path.exists(file_path):
+            result["found_files"].append(file_type)
+        else:
+            result["missing_files"].append(file_type)
+    
+    # Build 폴더 내부 필수 파일 확인 (.wasm, .data 등)
+    build_folder = os.path.join(build_dir, "Build")
+    if os.path.exists(build_folder):
+        try:
+            build_contents = os.listdir(build_folder)
+            
+            # 필수 확장자 확인
+            has_wasm = any(f.endswith(".wasm") or f.endswith(".wasm.br") or f.endswith(".wasm.gz") for f in build_contents)
+            has_data = any(f.endswith(".data") or f.endswith(".data.br") or f.endswith(".data.gz") for f in build_contents)
+            has_loader = any(f.endswith(".loader.js") or f.endswith(".loader.js.br") or f.endswith(".loader.js.gz") for f in build_contents)
+            has_framework = any(f.endswith(".framework.js") or f.endswith(".framework.js.br") or f.endswith(".framework.js.gz") for f in build_contents)
+            
+            if has_wasm:
+                result["found_files"].append("WebAssembly (.wasm)")
+            else:
+                result["missing_files"].append("WebAssembly (.wasm)")
+            
+            if has_data:
+                result["found_files"].append("Data file (.data)")
+            else:
+                result["missing_files"].append("Data file (.data)")
+            
+            if has_loader:
+                result["found_files"].append("Loader (.loader.js)")
+            else:
+                result["missing_files"].append("Loader (.loader.js)")
+            
+            if has_framework:
+                result["found_files"].append("Framework (.framework.js)")
+            else:
+                result["missing_files"].append("Framework (.framework.js)")
+            
+            # 모든 필수 파일이 있으면 유효
+            result["valid"] = has_wasm and has_data and has_loader and has_framework and len(result["missing_files"]) == 0
+        except Exception as e:
+            result["missing_files"].append(f"Build 폴더 검증 실패: {e}")
+    else:
+        result["missing_files"].append("Build 폴더")
+    
+    return result
+
 def monitor_build_progress(log_file_path, project_name, stop_event, start_time):
     """로그 파일을 주기적으로 모니터링하여 빌드 진행 상황을 표시합니다."""
     last_position = 0
@@ -583,6 +662,10 @@ def run_unity_webgl_build(project_path, timeout=BUILD_TIMEOUT):
     timestamp = time.strftime("%Y%m%d_%H%M%S")
     log_file_path = os.path.join(log_dir, f"{project_name}_{timestamp}.log")
     
+    # 빌드 스크립트 경로 (나중에 정리를 위해 저장)
+    script_path = os.path.join(project_path, "Assets", "Editor", "AutoWebGLBuildScript.cs")
+    script_meta_path = script_path + ".meta"
+    
     try:
         if not os.path.exists(project_build_dir):
             os.makedirs(project_build_dir, exist_ok=True)
@@ -647,10 +730,45 @@ def run_unity_webgl_build(project_path, timeout=BUILD_TIMEOUT):
         time_str = f"{minutes}분 {seconds}초" if minutes > 0 else f"{seconds}초"
         
         if result.returncode == 0:
-            print(f"✅ Unity WebGL 빌드 성공: {project_name} (소요 시간: {time_str})")
-            # if os.path.exists(log_file_path):
-            #     print(f"📝 빌드 로그: {log_file_path}")
-            return True, elapsed_time
+            # 빌드 파일 검증: 실제로 필수 파일들이 생성되었는지 확인
+            build_validation = validate_build_output(project_build_dir, project_name)
+            
+            if build_validation["valid"]:
+                print(f"✅ Unity WebGL 빌드 성공: {project_name} (소요 시간: {time_str})")
+                print(f"   📦 빌드 파일 검증 완료: {', '.join(build_validation['found_files'])}")
+                # if os.path.exists(log_file_path):
+                #     print(f"📝 빌드 로그: {log_file_path}")
+                return True, elapsed_time
+            else:
+                print(f"❌ Unity WebGL 빌드 실패 (파일 검증 실패): {project_name} (소요 시간: {time_str})")
+                print(f"   ⚠️ 빌드가 완료되었으나 필수 파일이 생성되지 않았습니다.")
+                print(f"   ⚠️ 누락된 파일: {', '.join(build_validation['missing_files'])}")
+                
+                # 빌드 폴더 내용물 확인
+                if os.path.exists(project_build_dir):
+                    try:
+                        contents = os.listdir(project_build_dir)
+                        if contents:
+                            print(f"   📁 빌드 폴더 내용: {', '.join(contents)}")
+                        else:
+                            print(f"   📁 빌드 폴더가 비어있습니다.")
+                    except Exception as e:
+                        print(f"   ⚠️ 빌드 폴더 확인 실패: {e}")
+                
+                # 로그 파일 확인
+                if os.path.exists(log_file_path):
+                    with open(log_file_path, 'r', encoding='utf-8', errors='replace') as log_file:
+                        log_lines = log_file.readlines()
+                        if log_lines:
+                            print("\n" + "="*80)
+                            print("📝 로그 파일 마지막 50줄 (오류 확인):")
+                            print("="*80)
+                            last_lines = log_lines[-50:] if len(log_lines) > 50 else log_lines
+                            for line in last_lines:
+                                print(line.rstrip())
+                            print("="*80)
+                
+                return False, elapsed_time
         else:
             print(f"❌ Unity WebGL 빌드 실패: {project_name} (종료 코드: {result.returncode}, 소요 시간: {time_str})")
             
@@ -764,6 +882,22 @@ def run_unity_webgl_build(project_path, timeout=BUILD_TIMEOUT):
         # if os.path.exists(log_file_path):
         #     print(f"📝 전체 예외 로그: {log_file_path}")
         return False, elapsed_time
+    
+    finally:
+        # 빌드 스크립트 정리 (성공/실패/예외 모든 경우에 실행)
+        try:
+            cleaned_files = []
+            if os.path.exists(script_path):
+                os.remove(script_path)
+                cleaned_files.append("AutoWebGLBuildScript.cs")
+            if os.path.exists(script_meta_path):
+                os.remove(script_meta_path)
+                cleaned_files.append("AutoWebGLBuildScript.cs.meta")
+            
+            if cleaned_files:
+                print(f"🧹 임시 빌드 스크립트 정리 완료: {', '.join(cleaned_files)}")
+        except Exception as e:
+            print(f"⚠️ 빌드 스크립트 정리 실패: {e}")
 
 def build_multiple_webgl_projects(project_dirs, parallel=False, max_workers=2):
     """여러 Unity 프로젝트를 WebGL로 빌드합니다."""

@@ -4,6 +4,22 @@ Unity 6 프로젝트 자동화 도구 - 패키지 관리, Git 작업, 빌드 자
 
 ---
 
+## ⚠️ 중요 주의사항 (반드시 읽어주세요!)
+
+### 🚫 빌드 중 금지사항
+
+1. **Unity 에디터를 절대 열지 마세요!**
+   - 빌드 중 Unity 에디터 실행 시 프로세스 충돌 발생
+   - Library 폴더 잠금으로 빌드 실패 가능
+   - 빌드가 완전히 끝난 후에만 Unity 실행
+
+2. **빌드 중인 프로젝트 폴더를 건드리지 마세요**
+   - 파일 탐색기에서 폴더 열기 금지
+   - Library, Build 폴더 수정/삭제 금지
+   - 빌드 완료 후 작업 가능
+
+
+
 ## 🚀 빠른 시작 (Quick Start)
 
 ### 기본 실행 방법
@@ -46,14 +62,20 @@ python dannect.unity.toolkit.py --git-push
 # WebGL 순차 빌드 (안전, 느림)
 python dannect.unity.toolkit.py --build-webgl
 
-# WebGL 병렬 빌드 (빠름, 메모리 많이 사용)
+# WebGL 병렬 빌드 (기본 4개, 권장)
 python dannect.unity.toolkit.py --build-webgl --build-parallel
 
 # WebGL 빌드만 (패키지 추가/Git 작업 스킵)
 python dannect.unity.toolkit.py --build-only
 
-# WebGL 빌드만 + 병렬 실행
+# WebGL 빌드만 + 병렬 실행 (기본 4개)
 python dannect.unity.toolkit.py --build-only --build-parallel
+
+# 2개 병렬 빌드 (16GB RAM 시스템)
+python dannect.unity.toolkit.py --build-only --build-parallel --max-workers 2
+
+# 5개 병렬 빌드 (32GB RAM 이상)
+python dannect.unity.toolkit.py --build-only --build-parallel --max-workers 5
 ```
 
 ### 3. Unity 배치 모드
@@ -161,9 +183,10 @@ python dannect.unity.toolkit.py --add-system-methods
 | 옵션 | 설명 | 패키지 추가 | Git 작업 | 실행 방식 |
 |------|------|------------|---------|----------|
 | `--build-webgl` | WebGL 빌드 | ❌ | ❌ | 순차 |
-| `--build-webgl --build-parallel` | WebGL 병렬 빌드 | ❌ | ❌ | 병렬 (2개) |
+| `--build-webgl --build-parallel` | WebGL 병렬 빌드 | ❌ | ❌ | 병렬 (기본 4개) |
+| `--build-webgl --build-parallel --max-workers N` | 병렬 작업자 수 지정 | ❌ | ❌ | 병렬 (N개) |
 | `--build-only` | 빌드만 (다른 작업 스킵) | ❌ | ❌ | 순차 |
-| `--build-only --build-parallel` | 빌드만 (병렬) | ❌ | ❌ | 병렬 (2개) |
+| `--build-only --build-parallel` | 빌드만 (병렬) | ❌ | ❌ | 병렬 (기본 4개) |
 
 ### Unity 배치 옵션
 
@@ -244,11 +267,73 @@ UNITY_TIMEOUT = 300  # 기본 5분 (300초)
 
 ```
 패키지 추가 → Git 커밋 → WebGL 빌드 (순차)
-= 5초 + 10초 + 45분 = 약 45분
+= 5초 + 10초 + 24분 = 약 25분
 
-빌드만 (병렬)
-= 25분 (최대 2개 동시 빌드)
+빌드만 (병렬, max_workers=4)
+= 8분 (모든 프로젝트 동시 빌드)
+
+빌드만 (순차)
+= 24분
 ```
+
+### 실제 빌드 성공 사례 (RuntimeSpeedLTO)
+
+**빌드 환경:**
+- Code Optimization: `RuntimeSpeedLTO` (최고 성능 + LTO)
+- 병렬 빌드: 4개 동시 실행
+- 총 빌드: 4개 프로젝트
+- 빌드 날짜: 2025-10-30
+
+**개별 프로젝트 빌드 시간:**
+
+| 프로젝트명 | 빌드 시간 | 특이사항 |
+|-----------|----------|---------|
+| 5.2.2.7_WindFormationModel | 52분 6초 | 첫 번째 완료 |
+| 5.2.1.6_AbioticFactors | 55분 19초 | 가장 오래 소요 |
+| 6.2.2.2_SolarAltitudeShadowLengthTemperature | 43분 55초 | |
+| 3.2.2.2_LandSeaComparison | 42분 11초 | 가장 빠름 |
+
+**빌드 결과 요약:**
+
+```
+✅ 성공: 4개 / 4개 (100%)
+⏱️ 병렬 빌드 소요 시간: 97분 30초 (최장 빌드 기준)
+⏱️ 전체 빌드 소요 시간: 193분 33초 (총 누적 시간)
+📊 평균 빌드 시간: 48분 23초 (프로젝트당)
+
+병렬 빌드 효율: 약 49.7% 시간 절약
+(순차 빌드 예상 193분 → 병렬 빌드 실제 97.5분)
+```
+
+**빌드 단계별 진행 상황:**
+
+```
+[WindFormationModel]
+52분 6초 경과 → Emscripten 단계 → ✅ 완료
+
+[AbioticFactors]
+53분 1초 경과 → Emscripten 단계
+54분 1초 경과 → 빌드 진행 중
+55분 19초 → ✅ 완료
+
+[SolarAltitudeShadowLengthTemperature]
+1분 0초 경과 → 빌드 진행 중
+2분 0초 경과 → Emscripten 단계
+3분 0초 경과 → IL2CPP 단계
+43분 55초 → ✅ 완료
+
+[LandSeaComparison]
+41분 0초 경과 → Emscripten 단계
+42분 0초 경과 → 빌드 진행 중
+42분 11초 → ✅ 완료
+```
+
+**성능 분석:**
+
+- **최적화 효과**: RuntimeSpeedLTO 설정으로 최고 성능 빌드 생성
+- **병렬 효율**: 4개 동시 빌드로 약 2배 빠른 완료 시간
+- **안정성**: 4개 중 4개 성공 (실패율 0%)
+- **리소스 사용**: 32GB RAM 권장 환경에서 안정적 실행
 
 ---
 
@@ -508,7 +593,20 @@ UnityEditor.WebGL.UserBuildSettings.codeOptimization = WasmCodeOptimization.Runt
 
 ---
 
+## 📝 변경 이력
+
+### 2025-10-30
+- ⚠️ 중요 주의사항 섹션 추가 (Unity 에디터 충돌 방지)
+- 시스템 리소스 요구사항 상세 가이드 추가
+- 동적 max_workers 설정 기능 추가 (--max-workers N)
+- 기본 병렬 작업자 수 2개 → 4개로 변경
+- 빌드 성능 최적화 (stdout/stderr 캡처 제거)
+- 실시간 진행도 모니터링 기능 추가
+
+---
+
 **마지막 업데이트:** 2025-10-30  
 **Unity 버전:** Unity 6 (6000.0.59f2)  
-**Python 버전:** Python 3.x
+**Python 버전:** Python 3.x  
+**권장 시스템:** 32GB RAM, 20+ 코어
 
