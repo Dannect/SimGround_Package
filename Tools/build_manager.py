@@ -510,9 +510,9 @@ public class AutoWebGLBuildScript
     
     private static string[] GetBuildScenes()
     {
-        // Build Settings에서 활성화된 씬들만 가져오기
         var enabledScenes = new System.Collections.Generic.List<string>();
         
+        // 1순위: Build Settings에 등록된 씬 확인
         foreach (var scene in EditorBuildSettings.scenes)
         {
             if (scene.enabled)
@@ -520,6 +520,73 @@ public class AutoWebGLBuildScript
                 enabledScenes.Add(scene.path);
             }
         }
+        
+        if (enabledScenes.Count > 0)
+        {
+            Debug.Log("✅ Build Settings에서 씬 로드 완료");
+            Debug.Log("📋 빌드할 씬 수: " + enabledScenes.Count);
+            foreach (var scene in enabledScenes)
+            {
+                Debug.Log("  - " + scene);
+            }
+            return enabledScenes.ToArray();
+        }
+        
+        // 2순위: 가장 최근 수정된 씬 자동 검색
+        Debug.LogWarning("⚠️ Build Settings에 씬이 없습니다. 가장 최근 수정된 씬을 자동으로 검색합니다.");
+        
+        string[] sceneGuids = AssetDatabase.FindAssets("t:Scene", new[] { "Assets" });
+        
+        if (sceneGuids.Length == 0)
+        {
+            Debug.LogError("❌ 프로젝트에 씬이 하나도 없습니다!");
+            return new string[0];
+        }
+        
+        // 씬 경로와 수정 시간 수집
+        var scenesWithTime = new System.Collections.Generic.List<System.Tuple<string, System.DateTime>>();
+        
+        foreach (string guid in sceneGuids)
+        {
+            string scenePath = AssetDatabase.GUIDToAssetPath(guid);
+            
+            // Unity 내부 경로를 실제 파일 시스템 경로로 변환
+            // scenePath = "Assets/Scenes/Main.unity"
+            // Application.dataPath = "C:/Project/Assets"
+            string fullPath = scenePath.Replace("Assets", Application.dataPath);
+            
+            try
+            {
+                if (System.IO.File.Exists(fullPath))
+                {
+                    System.DateTime lastWriteTime = System.IO.File.GetLastWriteTime(fullPath);
+                    scenesWithTime.Add(new System.Tuple<string, System.DateTime>(scenePath, lastWriteTime));
+                    Debug.Log("  • " + System.IO.Path.GetFileName(scenePath) + " - 수정: " + lastWriteTime.ToString("yyyy-MM-dd HH:mm:ss"));
+                }
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogWarning("⚠️ 씬 파일 시간 확인 실패: " + scenePath + " - " + e.Message);
+            }
+        }
+        
+        if (scenesWithTime.Count == 0)
+        {
+            Debug.LogError("❌ 유효한 씬 파일을 찾을 수 없습니다!");
+            return new string[0];
+        }
+        
+        // 수정 시간 기준 내림차순 정렬 (최신이 먼저)
+        scenesWithTime.Sort((a, b) => b.Item2.CompareTo(a.Item2));
+        
+        // 가장 최근 수정된 씬 선택
+        string latestScene = scenesWithTime[0].Item1;
+        System.DateTime latestTime = scenesWithTime[0].Item2;
+        
+        Debug.Log("✅ 가장 최근 수정된 씬 선택: " + latestScene);
+        Debug.Log("   수정 시간: " + latestTime.ToString("yyyy-MM-dd HH:mm:ss"));
+        
+        enabledScenes.Add(latestScene);
         
         Debug.Log("📋 빌드할 씬 수: " + enabledScenes.Count);
         foreach (var scene in enabledScenes)
@@ -933,32 +1000,85 @@ def run_unity_webgl_build(project_path, timeout=BUILD_TIMEOUT):
                 # 로그 파일 확인
                 if os.path.exists(log_file_path):
                     with open(log_file_path, 'r', encoding='utf-8', errors='replace') as log_file:
-                        log_lines = log_file.readlines()
+                        log_content = log_file.read()
+                        log_lines = log_content.splitlines()
+                        
+                        # 빌드 스크립트가 실행되었는지 확인
+                        if "WebGL Player Settings 자동 설정 및 빌드 시작" in log_content:
+                            print("   ✓ 빌드 스크립트가 실행되었음")
+                        else:
+                            print("   ❌ 빌드 스크립트가 실행되지 않음 (컴파일 에러 가능성)")
+                        
+                        # 컴파일 에러 검색
+                        error_lines = []
+                        for i, line in enumerate(log_lines):
+                            if any(keyword in line for keyword in ["error CS", "Error:", "error:", "CompilerError", "Compilation failed"]):
+                                # 에러 라인과 전후 컨텍스트 수집
+                                start = max(0, i - 2)
+                                end = min(len(log_lines), i + 3)
+                                error_lines.extend(log_lines[start:end])
+                                error_lines.append("---")
+                        
+                        if error_lines:
+                            print("\n" + "="*80)
+                            print("❌ 컴파일 에러 발견:")
+                            print("="*80)
+                            for line in error_lines[:100]:  # 최대 100줄
+                                print(line)
+                            print("="*80)
+                        
+                        # 로그 마지막 부분도 출력
                         if log_lines:
                             print("\n" + "="*80)
-                            print("📝 로그 파일 마지막 50줄 (오류 확인):")
+                            print("📝 로그 파일 마지막 100줄 (전체 컨텍스트):")
                             print("="*80)
-                            last_lines = log_lines[-50:] if len(log_lines) > 50 else log_lines
+                            last_lines = log_lines[-100:] if len(log_lines) > 100 else log_lines
                             for line in last_lines:
-                                print(line.rstrip())
+                                print(line)
                             print("="*80)
                 
                 return False, elapsed_time
         else:
             print(f"❌ Unity WebGL 빌드 실패: {project_name} (종료 코드: {result.returncode}, 소요 시간: {time_str})")
             
-            # 오류 발생 시 로그 파일의 마지막 부분 읽어서 표시
+            # 오류 발생 시 로그 파일 분석
             try:
                 if os.path.exists(log_file_path):
                     with open(log_file_path, 'r', encoding='utf-8', errors='replace') as log_file:
-                        log_lines = log_file.readlines()
+                        log_content = log_file.read()
+                        log_lines = log_content.splitlines()
+                        
+                        # 빌드 스크립트가 실행되었는지 확인
+                        if "WebGL Player Settings 자동 설정 및 빌드 시작" in log_content:
+                            print("   ✓ 빌드 스크립트가 실행되었음")
+                        else:
+                            print("   ❌ 빌드 스크립트가 실행되지 않음 (컴파일 에러 가능성)")
+                        
+                        # 컴파일 에러 검색
+                        error_lines = []
+                        for i, line in enumerate(log_lines):
+                            if any(keyword in line for keyword in ["error CS", "Error:", "error:", "CompilerError", "Compilation failed"]):
+                                start = max(0, i - 2)
+                                end = min(len(log_lines), i + 3)
+                                error_lines.extend(log_lines[start:end])
+                                error_lines.append("---")
+                        
+                        if error_lines:
+                            print("\n" + "="*80)
+                            print("❌ 컴파일 에러 발견:")
+                            print("="*80)
+                            for line in error_lines[:100]:
+                                print(line)
+                            print("="*80)
+                        
+                        # 로그 마지막 부분 출력
                         if log_lines:
                             print("\n" + "="*80)
-                            print("📝 로그 파일 마지막 50줄 (오류 확인):")
+                            print("📝 로그 파일 마지막 100줄:")
                             print("="*80)
-                            last_lines = log_lines[-50:] if len(log_lines) > 50 else log_lines
+                            last_lines = log_lines[-100:] if len(log_lines) > 100 else log_lines
                             for line in last_lines:
-                                print(line.rstrip())
+                                print(line)
                             print("="*80)
             except Exception as e:
                 print(f"⚠️ 로그 파일 읽기 실패: {e}")
@@ -992,16 +1112,24 @@ def run_unity_webgl_build(project_path, timeout=BUILD_TIMEOUT):
                     log_file.write(f"Timestamp: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
                     log_file.write("="*80 + "\n")
                 
-                # 로그 파일의 마지막 부분 표시
+                # 로그 파일 분석
                 with open(log_file_path, 'r', encoding='utf-8', errors='replace') as log_file:
-                    log_lines = log_file.readlines()
+                    log_content = log_file.read()
+                    log_lines = log_content.splitlines()
+                    
+                    # 빌드 스크립트가 실행되었는지 확인
+                    if "WebGL Player Settings 자동 설정 및 빌드 시작" in log_content:
+                        print("   ✓ 빌드 스크립트가 실행되었음 (빌드 중 타임아웃)")
+                    else:
+                        print("   ❌ 빌드 스크립트가 실행되지 않음 (타임아웃 전 컴파일 에러 가능성)")
+                    
                     if log_lines:
                         print("\n" + "="*80)
-                        print("📝 타임아웃 직전 로그 (마지막 50줄):")
+                        print("📝 타임아웃 직전 로그 (마지막 100줄):")
                         print("="*80)
-                        last_lines = log_lines[-50:] if len(log_lines) > 50 else log_lines
+                        last_lines = log_lines[-100:] if len(log_lines) > 100 else log_lines
                         for line in last_lines:
-                            print(line.rstrip())
+                            print(line)
                         print("="*80)
         except Exception as e:
             print(f"⚠️ 타임아웃 로그 저장 실패: {e}")
@@ -1040,16 +1168,24 @@ def run_unity_webgl_build(project_path, timeout=BUILD_TIMEOUT):
                     log_file.write(f"\nTimestamp: {time.strftime('%Y-%m-%d %H:%M:%S')}\n")
                     log_file.write("="*80 + "\n")
                 
-                # 로그 파일의 마지막 부분 표시
+                # 로그 파일 분석
                 with open(log_file_path, 'r', encoding='utf-8', errors='replace') as log_file:
-                    log_lines = log_file.readlines()
+                    log_content = log_file.read()
+                    log_lines = log_content.splitlines()
+                    
+                    # 빌드 스크립트가 실행되었는지 확인
+                    if "WebGL Player Settings 자동 설정 및 빌드 시작" in log_content:
+                        print("   ✓ 빌드 스크립트가 실행되었음 (빌드 중 예외 발생)")
+                    else:
+                        print("   ❌ 빌드 스크립트가 실행되지 않음 (예외 전 컴파일 에러 가능성)")
+                    
                     if log_lines:
                         print("\n" + "="*80)
-                        print("📝 예외 발생 직전 로그 (마지막 50줄):")
+                        print("📝 예외 발생 직전 로그 (마지막 100줄):")
                         print("="*80)
-                        last_lines = log_lines[-50:] if len(log_lines) > 50 else log_lines
+                        last_lines = log_lines[-100:] if len(log_lines) > 100 else log_lines
                         for line in last_lines:
-                            print(line.rstrip())
+                            print(line)
                         print("="*80)
         except Exception as log_error:
             print(f"⚠️ 예외 로그 저장 실패: {log_error}")
