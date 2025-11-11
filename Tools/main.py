@@ -302,7 +302,7 @@ def main():
             print(f"⚡ Code Optimization: {WEBGL_CODE_OPTIMIZATION}")
         
         # WebGL 빌드 실행
-        build_results = build_multiple_webgl_projects(
+        build_results, total_build_time = build_multiple_webgl_projects(
             project_dirs, 
             parallel=build_parallel,
             max_workers=max_workers if build_parallel else 1
@@ -312,8 +312,7 @@ def main():
         success_builds = sum(1 for _, success, _ in build_results if success)
         fail_builds = len(build_results) - success_builds
         
-        # 전체 빌드 시간 계산
-        total_build_time = sum(elapsed_time for _, _, elapsed_time in build_results)
+        # 전체 빌드 시간 포맷팅
         total_minutes = int(total_build_time // 60)
         total_seconds = int(total_build_time % 60)
         total_time_str = f"{total_minutes}분 {total_seconds}초" if total_minutes > 0 else f"{total_seconds}초"

@@ -1075,7 +1075,13 @@ def run_unity_webgl_build(project_path, timeout=BUILD_TIMEOUT):
             print(f"⚠️ 빌드 스크립트 정리 실패: {e}")
 
 def build_multiple_webgl_projects(project_dirs, parallel=False, max_workers=2):
-    """여러 Unity 프로젝트를 WebGL로 빌드합니다."""
+    """여러 Unity 프로젝트를 WebGL로 빌드합니다.
+    
+    Returns:
+        tuple: (results, total_elapsed_time)
+            - results: [(project_name, success, elapsed_time), ...]
+            - total_elapsed_time: 전체 빌드 소요 시간 (초)
+    """
     print(f"\n=== Unity WebGL 다중 프로젝트 빌드 시작 ===")
     
     if parallel:
@@ -1124,17 +1130,8 @@ def build_multiple_webgl_projects_sequential(project_dirs):
     
     total_end_time = time.time()
     total_elapsed_time = total_end_time - total_start_time
-    total_minutes = int(total_elapsed_time // 60)
-    total_seconds = int(total_elapsed_time % 60)
-    total_time_str = f"{total_minutes}분 {total_seconds}초" if total_minutes > 0 else f"{total_seconds}초"
     
-    print(f"\n=== WebGL 순차 빌드 결과 ===")
-    print(f"성공: {success_count}개")
-    print(f"실패: {fail_count}개")
-    print(f"총 빌드: {success_count + fail_count}개")
-    print(f"⏱️ 전체 빌드 소요 시간: {total_time_str}")
-    
-    return results
+    return results, total_elapsed_time
 
 def build_multiple_webgl_projects_parallel(project_dirs, max_workers=2):
     """여러 Unity 프로젝트를 WebGL로 병렬로 빌드합니다."""
@@ -1192,17 +1189,8 @@ def build_multiple_webgl_projects_parallel(project_dirs, max_workers=2):
     
     total_end_time = time.time()
     total_elapsed_time = total_end_time - total_start_time
-    total_minutes = int(total_elapsed_time // 60)
-    total_seconds = int(total_elapsed_time % 60)
-    total_time_str = f"{total_minutes}분 {total_seconds}초" if total_minutes > 0 else f"{total_seconds}초"
     
-    print(f"\n=== WebGL 병렬 빌드 결과 ===")
-    print(f"성공: {success_count}개")
-    print(f"실패: {fail_count}개")
-    print(f"총 빌드: {success_count + fail_count}개")
-    print(f"⏱️ 전체 빌드 소요 시간: {total_time_str}")
-    
-    return results
+    return results, total_elapsed_time
 
 def clean_build_outputs(project_dirs):
     """중앙 집중식 빌드 출력물을 정리합니다."""
