@@ -33,7 +33,7 @@ def create_unity_webgl_build_script(project_path, output_path=None, auto_configu
     project_name = get_project_name_from_path(project_path)
     
     if output_path is None:
-        # 중앙 집중식 빌드 경로: C:\Users\wkzkx\Desktop\Lim\GitHub\Build\프로젝트명\
+        # 빌드 출력 경로: C:\Users\wkzkx\Desktop\Lim\GitHub\Build\프로젝트명\
         output_path = os.path.join(BUILD_OUTPUT_DIR, project_name)
     
     output_path_formatted = output_path.replace(os.sep, '/')
@@ -89,7 +89,7 @@ public class AutoWebGLBuildScript
         string safeProjectName = projectName.Replace(" ", "_");
         safeProjectName = System.Text.RegularExpressions.Regex.Replace(safeProjectName, @"[^\\w\\-_\\.]", "");
         
-        // 중앙 집중식 빌드 경로 설정: C:/Users/wkzkx/Desktop/Lim/GitHub/Build/프로젝트명
+        // 빌드 출력 경로: C:/Users/wkzkx/Desktop/Lim/GitHub/Build/프로젝트명
         string buildPath = @"$output_path";
         
         // 출력 디렉토리 생성 (상위 폴더까지 모두 생성)
@@ -98,11 +98,11 @@ public class AutoWebGLBuildScript
             if (!Directory.Exists(buildPath))
             {
                 Directory.CreateDirectory(buildPath);
-                Debug.Log("중앙 집중식 빌드 출력 디렉토리 생성: " + buildPath);
+                Debug.Log("빌드 출력 디렉토리 생성: " + buildPath);
             }
             else
             {
-                Debug.Log("중앙 집중식 빌드 출력 디렉토리 확인 완료: " + buildPath);
+                Debug.Log("빌드 출력 디렉토리 확인 완료: " + buildPath);
             }
         }
         catch (System.Exception e)
@@ -113,7 +113,7 @@ public class AutoWebGLBuildScript
         }
         
         Debug.Log("📁 프로젝트명: " + projectName + " -> 안전한 파일명: " + safeProjectName);
-        Debug.Log("🌐 중앙 집중식 빌드 경로: " + buildPath);
+        Debug.Log("🌐 빌드 경로: " + buildPath);
         
         // 빌드할 씬들 가져오기 (Build Settings에서 활성화된 씬만)
         string[] scenes = GetBuildScenes();
@@ -135,8 +135,8 @@ public class AutoWebGLBuildScript
         // WebGL 특수 설정 적용
         ApplyWebGLSettings();
         
-        Debug.Log("🌐 WebGL 중앙 집중식 빌드 시작");
-        Debug.Log("📁 중앙 빌드 경로: " + buildPlayerOptions.locationPathName);
+        Debug.Log("🌐 WebGL 빌드 시작");
+        Debug.Log("📁 빌드 경로: " + buildPlayerOptions.locationPathName);
         Debug.Log("📂 프로젝트명: " + safeProjectName);
         Debug.Log("🎮 제품명: " + PlayerSettings.productName);
         Debug.Log("🏢 회사명: " + PlayerSettings.companyName);
@@ -173,8 +173,8 @@ public class AutoWebGLBuildScript
         
         if (report.summary.result == UnityEditor.Build.Reporting.BuildResult.Succeeded)
         {
-            Debug.Log("✅ WebGL 중앙 집중식 빌드 성공!");
-            Debug.Log("📁 중앙 빌드 경로: " + buildPath);
+            Debug.Log("✅ WebGL 빌드 성공!");
+            Debug.Log("📁 빌드 경로: " + buildPath);
             Debug.Log("📂 프로젝트명: " + safeProjectName);
             
             // Build 폴더 내용 확인
@@ -194,7 +194,7 @@ public class AutoWebGLBuildScript
                 Debug.LogError("⚠️ Build 폴더가 생성되지 않았습니다: " + buildFolder);
             }
             
-            Debug.Log("🌐 중앙 집중식 WebGL 빌드 완료!");
+            Debug.Log("🌐 WebGL 빌드 완료!");
         }
         else
         {
@@ -663,7 +663,7 @@ def validate_build_output(build_dir, project_name, log_file_path=None):
                 
                 # Unity가 빌드 성공을 보고했는지 확인 (여러 패턴 체크)
                 success_patterns = [
-                    "✅ WebGL 중앙 집중식 빌드 성공!",
+                    "✅ WebGL 빌드 성공!",
                     "📊 빌드 결과: Succeeded",
                     "BuildResult.Succeeded"
                 ]
@@ -685,7 +685,7 @@ def validate_build_output(build_dir, project_name, log_file_path=None):
                             result["found_files"].append(f"Build 폴더에 {file_count}개 파일 생성됨")
                 
                 # 빌드 완료 메시지도 확인 (fallback)
-                if not unity_files_generated and "🌐 중앙 집중식 WebGL 빌드 완료!" in log_content:
+                if not unity_files_generated and "🌐 WebGL 빌드 완료!" in log_content:
                     # 오래된 로그 형식 (파일 수 정보가 없는 경우)
                     unity_files_generated = True
                     result["found_files"].append("빌드 완료 메시지 확인됨")
@@ -1329,12 +1329,12 @@ def build_multiple_webgl_projects_parallel(project_dirs, max_workers=2):
     return results, total_elapsed_time
 
 def clean_build_outputs(project_dirs):
-    """중앙 집중식 빌드 출력물을 정리합니다."""
-    print("\n=== 중앙 집중식 빌드 출력물 정리 시작 ===")
-    print(f"📁 중앙 빌드 폴더: {BUILD_OUTPUT_DIR}")
+    """빌드 출력물을 정리합니다."""
+    print("\n=== 빌드 출력물 정리 시작 ===")
+    print(f"📁 빌드 폴더: {BUILD_OUTPUT_DIR}")
     
     if not os.path.exists(BUILD_OUTPUT_DIR):
-        print("⚪ 중앙 빌드 폴더가 존재하지 않습니다.")
+        print("⚪ 빌드 폴더가 존재하지 않습니다.")
         return
     
     cleaned_count = 0
@@ -1366,16 +1366,16 @@ def clean_build_outputs(project_dirs):
                 
                 # 크기를 읽기 쉬운 형태로 변환
                 size_str = format_bytes(folder_size)
-                print(f"✅ {project_name} 중앙 빌드 출력물 정리 완료 ({size_str})")
+                print(f"✅ {project_name} 빌드 출력물 정리 완료 ({size_str})")
                 cleaned_count += 1
             except Exception as e:
-                print(f"❌ {project_name} 중앙 빌드 출력물 정리 실패: {e}")
+                print(f"❌ {project_name} 빌드 출력물 정리 실패: {e}")
         else:
-            print(f"⚪ {project_name} 중앙 빌드 출력물 없음")
+            print(f"⚪ {project_name} 빌드 출력물 없음")
     
     total_size_str = format_bytes(total_size)
     print(f"\n📊 정리 완료: {cleaned_count}개 프로젝트, 총 {total_size_str} 절약")
-    print(f"📁 중앙 빌드 폴더: {BUILD_OUTPUT_DIR}")
+    print(f"📁 빌드 폴더: {BUILD_OUTPUT_DIR}")
 
 def format_bytes(bytes_size):
     """바이트 크기를 읽기 쉬운 형태로 변환합니다."""
